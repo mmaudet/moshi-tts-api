@@ -3,6 +3,10 @@ Moshi TTS API Server
 ====================
 FastAPI server for Moshi text-to-speech synthesis
 Supporting French and English languages
+
+Backend Support:
+- MLX (macOS with Metal GPU) - preferred on Apple Silicon
+- PyTorch (CUDA/CPU) - fallback for other platforms
 """
 
 from fastapi import FastAPI, HTTPException, File, UploadFile, Query
@@ -10,17 +14,12 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
 from enum import Enum
-try:
-    import torch
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
-    torch = None
 import numpy as np
 import io
 import wave
 import logging
 import os
+import json
 from typing import Optional, Dict, Any
 from pathlib import Path
 import asyncio
@@ -29,6 +28,31 @@ from datetime import datetime
 
 # Import configuration
 from config import get_settings
+
+# Backend detection - try MLX first (for macOS Metal GPU), then PyTorch
+BACKEND = None
+try:
+    import mlx.core as mx
+    import mlx.nn as nn
+    import sentencepiece
+    from moshi_mlx import models as mlx_models
+    from moshi_mlx.models.tts import TTSModel as MLXTTSModel
+    from moshi_mlx.models.tts import DEFAULT_DSM_TTS_REPO, DEFAULT_DSM_TTS_VOICE_REPO
+    from moshi_mlx.utils.loaders import hf_get
+    BACKEND = "mlx"
+    logger_init = logging.getLogger(__name__)
+    logger_init.info("✅ MLX backend detected (Metal GPU acceleration)")
+except ImportError:
+    try:
+        import torch
+        BACKEND = "pytorch"
+        logger_init = logging.getLogger(__name__)
+        logger_init.info("✅ PyTorch backend detected")
+    except ImportError:
+        BACKEND = "dummy"
+        torch = None
+        logger_init = logging.getLogger(__name__)
+        logger_init.warning("⚠️ No ML backend available, using dummy mode")
 
 # Load settings
 settings = get_settings()
@@ -261,84 +285,150 @@ class ErrorResponse(BaseModel):
 
 # Model loading functions
 def load_moshi_model():
-    """Initialize the Moshi TTS model"""
-    global model, tts_model, device
+    """Initialize the Moshi TTS model with auto-detected backend"""
+    global model, tts_model, device, cfg_coef_conditioning
 
     try:
-        if not TORCH_AVAILABLE:
-            logger.warning("⚠️ PyTorch not available, using dummy model for testing")
+        if BACKEND == "dummy":
+            logger.warning("⚠️ No ML backend available, using dummy model for testing")
             model = "dummy"
             device = "cpu"
             return
 
-        # Determine device (allow override from settings)
-        if settings.model_device:
-            device = settings.model_device
-            logger.info(f"Using forced device from config: {device}")
-        else:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            logger.info(f"Auto-detected device: {device}")
+        # MLX Backend (macOS with Metal GPU)
+        if BACKEND == "mlx":
+            logger.info("🍎 Loading Moshi TTS with MLX backend (Metal GPU)")
+            device = "mlx"
 
-        # Try to import and load the real Moshi TTS model
-        try:
-            from moshi.models.tts import TTSModel
-            from moshi.models.loaders import CheckpointInfo
+            try:
+                # Load configuration
+                logger.info(f"Loading config from {settings.default_tts_repo}...")
+                raw_config_path = hf_get("config.json", settings.default_tts_repo)
+                with open(raw_config_path, "r") as f:
+                    raw_config = json.load(f)
 
-            logger.info(f"Loading Moshi TTS model from {settings.default_tts_repo}...")
+                # Load model weights
+                mimi_weights = hf_get(raw_config["mimi_name"], settings.default_tts_repo)
+                moshi_name = raw_config.get("moshi_name", "model.safetensors")
+                moshi_weights = hf_get(moshi_name, settings.default_tts_repo)
+                tokenizer_path = hf_get(raw_config["tokenizer_name"], settings.default_tts_repo)
 
-            # Load model checkpoint
-            checkpoint_info = CheckpointInfo.from_hf_repo(
-                settings.default_tts_repo,
-                None,  # moshi_weight
-                None,  # mimi_weight
-                None,  # tokenizer
-                None   # config
-            )
+                # Create language model
+                logger.info("Loading language model...")
+                lm_config = mlx_models.LmConfig.from_config_dict(raw_config)
+                lm_model = mlx_models.Lm(lm_config)
+                lm_model.set_dtype(mx.bfloat16)
+                lm_model.load_pytorch_weights(str(moshi_weights), lm_config, strict=True)
 
-            # Determine dtype
-            if settings.model_dtype == "auto":
-                model_dtype = torch.bfloat16 if device == "cuda" else torch.float32
-            elif settings.model_dtype == "bfloat16":
-                model_dtype = torch.bfloat16
-            else:
-                model_dtype = torch.float32
+                # Create text tokenizer
+                logger.info("Loading text tokenizer...")
+                text_tokenizer = sentencepiece.SentencePieceProcessor(str(tokenizer_path))
 
-            # Create TTS model
-            tts_model = TTSModel.from_checkpoint_info(
-                checkpoint_info,
-                voice_repo=settings.default_voice_repo,
-                n_q=settings.model_n_q,
-                temp=settings.model_temp,
-                cfg_coef=settings.model_cfg_coef,
-                device=device,
-                dtype=model_dtype
-            )
+                # Create audio tokenizer (MIMI)
+                logger.info("Loading audio tokenizer (MIMI)...")
+                generated_codebooks = lm_config.generated_codebooks
+                audio_tokenizer = mlx_models.mimi.Mimi(mlx_models.mimi_202407(generated_codebooks))
+                audio_tokenizer.load_pytorch_weights(str(mimi_weights), strict=True)
 
-            # Handle CFG distillation as per run_tts.py lines 92-100
-            global cfg_coef_conditioning
-            if tts_model.valid_cfg_conditionings:
-                # Model was trained with CFG distillation
-                cfg_coef_conditioning = tts_model.cfg_coef
-                tts_model.cfg_coef = 1.0  # Set to 1.0 for distilled model
-            else:
+                # Create TTS model
+                tts_model = MLXTTSModel(
+                    lm_model,
+                    audio_tokenizer,
+                    text_tokenizer,
+                    voice_repo=settings.default_voice_repo,
+                    n_q=settings.model_n_q,
+                    temp=settings.model_temp,
+                    cfg_coef=settings.model_cfg_coef,
+                    raw_config=raw_config,
+                )
+
+                # Handle CFG distillation
                 cfg_coef_conditioning = None
+                if tts_model.valid_cfg_conditionings:
+                    cfg_coef_conditioning = tts_model.cfg_coef
+                    tts_model.cfg_coef = 1.0
 
-            model = "moshi_tts"
-            logger.info("✅ Moshi TTS model loaded successfully!")
+                model = "moshi_mlx"
+                logger.info("✅ Moshi TTS model loaded successfully with MLX!")
 
-        except ImportError as e:
-            logger.warning(f"⚠️ Moshi library not available: {e}")
-            logger.warning("⚠️ Using dummy model for testing")
-            model = "dummy"
-            device = "cpu"
-        except Exception as e:
-            logger.error(f"❌ Failed to load Moshi TTS model: {str(e)}")
-            logger.warning("⚠️ Falling back to dummy model")
-            model = "dummy"
-            device = "cpu"
+            except Exception as e:
+                logger.error(f"❌ Failed to load MLX model: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                model = "dummy"
+                device = "cpu"
+
+        # PyTorch Backend (CUDA/CPU)
+        elif BACKEND == "pytorch":
+            logger.info("🔥 Loading Moshi TTS with PyTorch backend")
+
+            # Determine device
+            if settings.model_device:
+                device = settings.model_device
+                logger.info(f"Using forced device from config: {device}")
+            else:
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+                logger.info(f"Auto-detected device: {device}")
+
+            try:
+                from moshi.models.tts import TTSModel
+                from moshi.models.loaders import CheckpointInfo
+
+                logger.info(f"Loading from {settings.default_tts_repo}...")
+
+                # Load model checkpoint
+                checkpoint_info = CheckpointInfo.from_hf_repo(
+                    settings.default_tts_repo,
+                    None,  # moshi_weight
+                    None,  # mimi_weight
+                    None,  # tokenizer
+                    None   # config
+                )
+
+                # Determine dtype
+                if settings.model_dtype == "auto":
+                    model_dtype = torch.bfloat16 if device == "cuda" else torch.float32
+                elif settings.model_dtype == "bfloat16":
+                    model_dtype = torch.bfloat16
+                else:
+                    model_dtype = torch.float32
+
+                # Create TTS model
+                tts_model = TTSModel.from_checkpoint_info(
+                    checkpoint_info,
+                    voice_repo=settings.default_voice_repo,
+                    n_q=settings.model_n_q,
+                    temp=settings.model_temp,
+                    cfg_coef=settings.model_cfg_coef,
+                    device=device,
+                    dtype=model_dtype
+                )
+
+                # Handle CFG distillation
+                cfg_coef_conditioning = None
+                if tts_model.valid_cfg_conditionings:
+                    cfg_coef_conditioning = tts_model.cfg_coef
+                    tts_model.cfg_coef = 1.0
+
+                model = "moshi_pytorch"
+                logger.info("✅ Moshi TTS model loaded successfully with PyTorch!")
+
+            except ImportError as e:
+                logger.warning(f"⚠️ Moshi library not available: {e}")
+                logger.warning("⚠️ Using dummy model for testing")
+                model = "dummy"
+                device = "cpu"
+            except Exception as e:
+                logger.error(f"❌ Failed to load PyTorch model: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                model = "dummy"
+                device = "cpu"
 
     except Exception as e:
         logger.error(f"❌ Unexpected error during model loading: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         model = "dummy"
         device = "cpu"
 
@@ -358,10 +448,13 @@ async def startup_event():
 async def shutdown_event():
     """Cleanup resources on shutdown"""
     logger.info("🛑 Shutting down Moshi TTS API Server...")
-    global model
+    global model, tts_model
     if model is not None:
+        if tts_model is not None:
+            del tts_model
         del model
-        if TORCH_AVAILABLE and device == "cuda":
+        # Only empty CUDA cache for PyTorch backend
+        if BACKEND == "pytorch" and device == "cuda":
             torch.cuda.empty_cache()
     executor.shutdown(wait=True)
     logger.info("👋 Shutdown complete")
@@ -369,7 +462,7 @@ async def shutdown_event():
 # Utility functions
 def synthesize_text(text: str, language: str, voice: str = "default") -> np.ndarray:
     """
-    Synthesize audio from text
+    Synthesize audio from text using available backend (MLX or PyTorch)
     Returns numpy array of audio samples
     """
     global tts_model
@@ -386,32 +479,30 @@ def synthesize_text(text: str, language: str, voice: str = "default") -> np.ndar
         audio += np.sin(2 * np.pi * frequency * 2 * t) * 0.1
         return audio
 
-    # Use real Moshi TTS model
-    try:
-        with torch.no_grad():
+    # MLX Backend
+    if model == "moshi_mlx":
+        try:
             # Prepare text entries for TTS
             entries = tts_model.prepare_script([text])
 
-            # Handle voice selection based on model type
+            # Handle voice selection
             voices = []
             prefixes = None
 
             if tts_model.multi_speaker:
                 # Multi-speaker model: pass voices to attributes
-                # For multi-speaker, we always need to provide a voice
                 if voice == "default":
-                    voice = "vctk/p225_023.wav"  # Use a known default voice
+                    voice = "vctk/p225_023.wav"
                 voice_path = tts_model.get_voice_path(voice)
                 voices = [voice_path]
             else:
                 # Single-speaker model: use voice as prefix
-                # Use the first available voice or a specific default
                 if voice == "default":
-                    voice = "vctk/p225_023.wav"  # Use a known default voice
+                    voice = "vctk/p225_023.wav"
                 voice_path = tts_model.get_voice_path(voice)
                 prefixes = [tts_model.get_prefix(voice_path)]
 
-            # Create condition attributes with CFG distillation support
+            # Create condition attributes
             attributes = tts_model.make_condition_attributes(voices, cfg_coef_conditioning)
 
             # Generate audio
@@ -423,13 +514,15 @@ def synthesize_text(text: str, language: str, voice: str = "default") -> np.ndar
                 cfg_is_no_text=True
             )
 
-            # Decode frames to audio
+            # Decode frames to audio using MLX
             wav_frames = []
-            with tts_model.mimi.streaming(1):
-                for frame in result.frames[tts_model.delay_steps:]:
-                    wav_frames.append(tts_model.mimi.decode(frame[:, 1:]))
+            for frame in result.frames:
+                # Decode each frame
+                _pcm = tts_model.mimi.decode_step(frame)
+                wav_frames.append(_pcm)
 
-            wav = torch.cat(wav_frames, dim=-1)
+            # Concatenate all frames
+            wav = mx.concat(wav_frames, axis=-1)
 
             # Get the actual generated audio length
             end_step = result.end_steps[0]
@@ -439,16 +532,82 @@ def synthesize_text(text: str, language: str, voice: str = "default") -> np.ndar
             else:
                 wav = wav[0, :, :]
 
-            # Convert to numpy and ensure mono
-            audio_data = wav.squeeze().cpu().numpy()
+            # Convert MLX array to numpy
+            audio_data = np.array(wav.squeeze())
 
             return audio_data
 
-    except Exception as e:
-        logger.error(f"Synthesis error: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        raise
+        except Exception as e:
+            logger.error(f"MLX synthesis error: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise
+
+    # PyTorch Backend
+    elif model == "moshi_pytorch":
+        try:
+            with torch.no_grad():
+                # Prepare text entries for TTS
+                entries = tts_model.prepare_script([text])
+
+                # Handle voice selection based on model type
+                voices = []
+                prefixes = None
+
+                if tts_model.multi_speaker:
+                    # Multi-speaker model: pass voices to attributes
+                    if voice == "default":
+                        voice = "vctk/p225_023.wav"
+                    voice_path = tts_model.get_voice_path(voice)
+                    voices = [voice_path]
+                else:
+                    # Single-speaker model: use voice as prefix
+                    if voice == "default":
+                        voice = "vctk/p225_023.wav"
+                    voice_path = tts_model.get_voice_path(voice)
+                    prefixes = [tts_model.get_prefix(voice_path)]
+
+                # Create condition attributes with CFG distillation support
+                attributes = tts_model.make_condition_attributes(voices, cfg_coef_conditioning)
+
+                # Generate audio
+                result = tts_model.generate(
+                    [entries],
+                    [attributes],
+                    prefixes=prefixes,
+                    cfg_is_no_prefix=(prefixes is None),
+                    cfg_is_no_text=True
+                )
+
+                # Decode frames to audio
+                wav_frames = []
+                with tts_model.mimi.streaming(1):
+                    for frame in result.frames[tts_model.delay_steps:]:
+                        wav_frames.append(tts_model.mimi.decode(frame[:, 1:]))
+
+                wav = torch.cat(wav_frames, dim=-1)
+
+                # Get the actual generated audio length
+                end_step = result.end_steps[0]
+                if end_step is not None:
+                    wav_length = int((tts_model.mimi.sample_rate * (end_step + tts_model.final_padding) / tts_model.mimi.frame_rate))
+                    wav = wav[0, :, :wav_length]
+                else:
+                    wav = wav[0, :, :]
+
+                # Convert to numpy and ensure mono
+                audio_data = wav.squeeze().cpu().numpy()
+
+                return audio_data
+
+        except Exception as e:
+            logger.error(f"PyTorch synthesis error: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise
+
+    else:
+        raise RuntimeError(f"Unknown model type: {model}")
 
 # API Endpoints
 
@@ -485,16 +644,26 @@ async def root():
 async def health_check():
     """
     Health check endpoint
-    
+
     Returns the current status of the service including:
     - Model loading status
     - Available languages
     - Computing device information
+    - Backend type (MLX/PyTorch/dummy)
     """
+    # Determine device display string
+    device_str = device if device else "not initialized"
+    if BACKEND == "mlx":
+        device_str = f"mlx (Metal GPU)"
+    elif BACKEND == "pytorch" and device == "cuda":
+        device_str = f"cuda (GPU)"
+    elif BACKEND == "pytorch" and device == "cpu":
+        device_str = "cpu"
+
     return HealthResponse(
         status="healthy" if model is not None else "degraded",
         model_loaded=model is not None,
-        device=device if device else "not initialized",
+        device=device_str,
         available_languages=[lang.value for lang in LanguageCode],
         api_version=settings.api_version,
         timestamp=datetime.utcnow()
