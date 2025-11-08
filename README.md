@@ -478,7 +478,7 @@ Contributions are welcome! Feel free to:
 
 ## 📧 Contact
 
-For any questions or suggestions, feel free to open an issue on GitHub.
+For any questions or suggestions, feel free to open an issue on GitHub or email me [mmaudet@linagora.com](mail:mmaudet@linagora.com)
 
 ---
 
