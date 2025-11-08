@@ -130,7 +130,8 @@ class VoicePreset(str, Enum):
     """Available voice presets from kyutai/tts-voices"""
     # Default voice
     default = "default"
-    # VCTK voices (Voice Cloning Toolkit) - use full filenames
+
+    # VCTK voices (English - Voice Cloning Toolkit)
     vctk_p225 = "vctk/p225_023.wav"
     vctk_p226 = "vctk/p226_023.wav"
     vctk_p227 = "vctk/p227_023.wav"
@@ -141,6 +142,45 @@ class VoicePreset(str, Enum):
     vctk_p232 = "vctk/p232_023.wav"
     vctk_p233 = "vctk/p233_023.wav"
     vctk_p234 = "vctk/p234_023.wav"
+
+    # CML-TTS French voices (Français)
+    cml_fr_1406 = "cml-tts/fr/1406_1028_000009-0003.wav"
+    cml_fr_1591 = "cml-tts/fr/1591_1028_000108-0004.wav"
+    cml_fr_1770 = "cml-tts/fr/1770_1028_000036-0002.wav"
+    cml_fr_2114 = "cml-tts/fr/2114_1656_000053-0001.wav"
+    cml_fr_2154 = "cml-tts/fr/2154_2576_000020-0003.wav"
+    cml_fr_2216 = "cml-tts/fr/2216_1745_000007-0001.wav"
+    cml_fr_2223 = "cml-tts/fr/2223_1745_000009-0002.wav"
+    cml_fr_2465 = "cml-tts/fr/2465_1943_000152-0002.wav"
+    cml_fr_296 = "cml-tts/fr/296_1028_000022-0001.wav"
+    cml_fr_3267 = "cml-tts/fr/3267_1902_000075-0001.wav"
+
+    # Expresso voices (English with emotions/styles)
+    expresso_default_ch1 = "expresso/ex01-ex02_default_001_channel1_168s.wav"
+    expresso_enunciated_ch1 = "expresso/ex01-ex02_enunciated_001_channel1_432s.wav"
+    expresso_fast_ch1 = "expresso/ex01-ex02_fast_001_channel1_104s.wav"
+    expresso_projected_ch1 = "expresso/ex01-ex02_projected_001_channel1_46s.wav"
+    expresso_whisper_ch1 = "expresso/ex01-ex02_whisper_001_channel1_579s.wav"
+    expresso_angry_ch1 = "expresso/ex03-ex01_angry_001_channel1_201s.wav"
+    expresso_happy_ch1 = "expresso/ex03-ex01_happy_001_channel1_334s.wav"
+    expresso_calm_ch1 = "expresso/ex03-ex01_calm_001_channel1_1143s.wav"
+    expresso_confused_ch1 = "expresso/ex03-ex01_confused_001_channel1_909s.wav"
+
+    # EARS voices (English - 50 diverse voices)
+    ears_p001 = "ears/p001/freeform_speech_01.wav"
+    ears_p002 = "ears/p002/freeform_speech_01.wav"
+    ears_p003 = "ears/p003/freeform_speech_01.wav"
+    ears_p004 = "ears/p004/freeform_speech_01.wav"
+    ears_p005 = "ears/p005/freeform_speech_01.wav"
+    ears_p010 = "ears/p010/freeform_speech_01.wav"
+    ears_p015 = "ears/p015/freeform_speech_01.wav"
+    ears_p020 = "ears/p020/freeform_speech_01.wav"
+    ears_p025 = "ears/p025/freeform_speech_01.wav"
+    ears_p030 = "ears/p030/freeform_speech_01.wav"
+    ears_p035 = "ears/p035/freeform_speech_01.wav"
+    ears_p040 = "ears/p040/freeform_speech_01.wav"
+    ears_p045 = "ears/p045/freeform_speech_01.wav"
+    ears_p050 = "ears/p050/freeform_speech_01.wav"
 
 # Pydantic models for request/response validation
 class TTSRequest(BaseModel):
