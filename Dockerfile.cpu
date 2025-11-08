@@ -1,11 +1,15 @@
-# CPU-only version of Moshi TTS API
-# Use this if you don't have GPU support
-FROM python:3.10-slim
+# CPU-only version of Moshi TTS API for Mac ARM64 and systems without GPU
+# Compatible with Apple Silicon (M1/M2/M3) and x86_64
+FROM python:3.12-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    DEBIAN_FRONTEND=noninteractive
+    DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    TORCH_COMPILE_DISABLE=1
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -14,39 +18,52 @@ RUN apt-get update && apt-get install -y \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv (fast Python package installer)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
 # Create app user for security
-RUN useradd -m -u 1000 appuser && \
+# Use UID 1001 to avoid conflict with ubuntu user (UID 1000)
+RUN useradd -m -u 1001 appuser && \
     mkdir -p /app /app/models && \
     chown -R appuser:appuser /app
 
 WORKDIR /app
 
-# Install core API dependencies
-RUN pip3 install --no-cache-dir \
-    fastapi==0.104.1 \
-    uvicorn[standard]==0.24.0 \
-    pydantic==2.4.2 \
-    numpy==1.24.3 \
-    scipy==1.11.4 \
-    python-multipart==0.0.6 \
-    aiofiles==23.2.1
+# Install PyTorch CPU version and Moshi together to avoid duplicate downloads
+# CPU version works on both ARM64 (Mac M1/M2/M3) and x86_64
+# Note: CPU inference is slower than GPU but works everywhere
+RUN uv pip install --system --break-system-packages \
+    torch \
+    torchaudio \
+    moshi \
+    --index-url https://download.pytorch.org/whl/cpu \
+    && rm -rf /root/.cache/uv
 
-# Note: Moshi with CPU-only PyTorch can be very slow
-# Uncomment the following to install Moshi for CPU
-# RUN pip3 install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-# RUN pip3 install --no-cache-dir moshi
+# Install core API dependencies using uv
+# Updated versions for Python 3.12 compatibility
+RUN uv pip install --system --break-system-packages \
+    fastapi>=0.104.1 \
+    uvicorn[standard]>=0.24.0 \
+    pydantic>=2.4.2 \
+    pydantic-settings>=2.1.0 \
+    numpy>=1.26.0 \
+    scipy>=1.11.4 \
+    python-multipart>=0.0.6 \
+    aiofiles>=23.2.1 \
+    && rm -rf /root/.cache/uv
 
 # Copy application files
 COPY --chown=appuser:appuser app.py /app/app.py
+COPY --chown=appuser:appuser config.py /app/config.py
 
-# Switch to non-root user
+# Switch to non-root user for security
 USER appuser
 
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+# Health check with correct endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
 # Run the application

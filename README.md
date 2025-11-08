@@ -33,20 +33,32 @@ REST API for text-to-speech synthesis using [Moshi model from Kyutai Labs](https
 
 The fastest way to get started! No need to clone or build.
 
+#### GPU Version (Linux with NVIDIA GPU)
+
 ```bash
-# With GPU support
 docker run -d --name moshi-tts-api \
     -p 8000:8000 \
     -v moshi-models:/app/models \
     --gpus all \
     mmaudet/moshi-tts-api:latest
+```
 
-# CPU only
+#### CPU Version (Mac, Windows, or Linux without GPU)
+
+**Perfect for Mac with Apple Silicon (M1/M2/M3)!**
+
+```bash
 docker run -d --name moshi-tts-api \
     -p 8000:8000 \
     -v moshi-models:/app/models \
-    mmaudet/moshi-tts-api:latest
+    mmaudet/moshi-tts-api:cpu
 ```
+
+**Note**: CPU version is slower than GPU but works on all platforms including:
+- 🍎 Mac with Apple Silicon (ARM64)
+- 🍎 Mac with Intel (x86_64)
+- 🪟 Windows
+- 🐧 Linux without NVIDIA GPU
 
 Access the API at: http://localhost:8000/docs
 
