@@ -12,10 +12,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     TORCH_COMPILE_DISABLE=1
 
 # Install system dependencies
+# build-essential and cargo needed to compile sphn (Rust package) on ARM64
 RUN apt-get update && apt-get install -y \
     curl \
     git \
     libsndfile1 \
+    build-essential \
+    cargo \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv (fast Python package installer)
@@ -37,8 +40,9 @@ RUN uv pip install --system --break-system-packages \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     && rm -rf /root/.cache/uv
 
-# Install Moshi dependencies (excluding bitsandbytes which is x86_64 only)
-# bitsandbytes is only used for quantization, not needed for CPU inference
+# Install Moshi dependencies
+# Excluding bitsandbytes (x86_64 only, used for quantization, not needed for CPU)
+# Including sphn (Rust package, will be compiled from source on ARM64)
 RUN uv pip install --system --break-system-packages \
     numpy \
     aiohttp \
