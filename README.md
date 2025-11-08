@@ -10,7 +10,8 @@ REST API for text-to-speech synthesis using [Moshi model from Kyutai Labs](https
 ## ✨ Features
 
 - 🌐 **Bilingual Support**: French and English
-- 🎤 **Voice Selection**: 10+ VCTK voices with customizable options
+- 🎤 **44 Voice Presets**: VCTK, CML-TTS French, Expresso emotions, EARS speakers
+- 🎭 **Emotional Speech**: Happy, angry, calm, confused, whisper, and more
 - 📖 **Swagger Documentation**: Interactive interface to test the API
 - 🎵 **High-Quality Audio**: 24kHz in WAV or RAW format
 - 🚀 **GPU Support**: Automatic CUDA acceleration
@@ -345,12 +346,63 @@ Use the HTTP Request node with:
 
 ## 🎤 Voice Presets
 
-The API includes multiple voice presets from the VCTK corpus:
+The API includes **44 voice presets** from multiple datasets in the [kyutai/tts-voices](https://huggingface.co/kyutai/tts-voices) repository:
 
-- `default` - Default voice (vctk/p225_023.wav)
-- `vctk_p225` through `vctk_p234` - Various VCTK voices
+### Voice Collections
 
-You can list all available voices using the `/api/v1/voices` endpoint.
+#### 1. VCTK Voices (English) - 10 voices
+British English speakers from the Voice Cloning Toolkit:
+- `vctk_p225` through `vctk_p234` - Various speaker characteristics
+- Example: `"voice": "vctk/p226_023.wav"`
+
+#### 2. CML-TTS French Voices (Français) - 10 voices
+High-quality French speakers:
+- `cml_fr_1406`, `cml_fr_1591`, `cml_fr_1770`, `cml_fr_2114`, `cml_fr_2154`
+- `cml_fr_2216`, `cml_fr_2223`, `cml_fr_2465`, `cml_fr_296`, `cml_fr_3267`
+- Example: `"voice": "cml-tts/fr/1406_1028_000009-0003.wav"`
+
+#### 3. Expresso Voices (English with Emotions) - 9 voices
+Emotional and stylistic variations:
+- **Speaking Styles**: `default`, `enunciated`, `fast`, `projected`, `whisper`
+- **Emotions**: `happy`, `angry`, `calm`, `confused`
+- Example: `"voice": "expresso/ex03-ex01_happy_001_channel1_334s.wav"`
+
+#### 4. EARS Voices (English) - 14 voices
+Diverse English speakers (subset of 50 available):
+- `ears_p001`, `ears_p002`, `ears_p003`, `ears_p004`, `ears_p005`
+- `ears_p010`, `ears_p015`, `ears_p020`, `ears_p025`, `ears_p030`
+- `ears_p035`, `ears_p040`, `ears_p045`, `ears_p050`
+- Example: `"voice": "ears/p001/freeform_speech_01.wav"`
+
+### Usage Examples
+
+```bash
+# English with emotional expression
+curl -X POST http://localhost:8000/api/v1/synthesize \
+     -H "Content-Type: application/json" \
+     -d '{"text": "I am so happy today!", "language": "en", "voice": "expresso/ex03-ex01_happy_001_channel1_334s.wav"}' \
+     --output happy_voice.wav
+
+# French voice
+curl -X POST http://localhost:8000/api/v1/synthesize \
+     -H "Content-Type: application/json" \
+     -d '{"text": "Bonjour, comment allez-vous?", "language": "fr", "voice": "cml-tts/fr/1406_1028_000009-0003.wav"}' \
+     --output french_voice.wav
+
+# Different English speaker
+curl -X POST http://localhost:8000/api/v1/synthesize \
+     -H "Content-Type: application/json" \
+     -d '{"text": "Hello, this is a different voice.", "language": "en", "voice": "ears/p010/freeform_speech_01.wav"}' \
+     --output ears_voice.wav
+```
+
+### List All Voices
+
+You can list all available voices using the `/api/v1/voices` endpoint:
+
+```bash
+curl http://localhost:8000/api/v1/voices | jq
+```
 
 ## 📄 License
 
