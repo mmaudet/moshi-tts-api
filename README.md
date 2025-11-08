@@ -65,10 +65,10 @@ docker run -d --name moshi-tts-api \
 
 ```bash
 # With GPU (default)
-docker-compose up -d
+docker compose up -d
 
 # Without GPU (edit docker-compose.yml to remove the deploy section)
-docker-compose up -d
+docker compose up -d
 ```
 
 ## 📖 Usage
