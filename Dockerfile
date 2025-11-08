@@ -38,13 +38,14 @@ WORKDIR /app
 
 # Install PyTorch with CUDA 12.6 support and Moshi together to avoid duplicate downloads
 # Installing together prevents moshi from re-downloading PyTorch
+# Use --extra-index-url (not --index-url) to keep access to PyPI for moshi
 # uv is 10-100x faster than pip
 # Clean cache after installation to save disk space during build
 RUN uv pip install --system --break-system-packages \
     torch \
     torchaudio \
     moshi \
-    --index-url https://download.pytorch.org/whl/cu126 \
+    --extra-index-url https://download.pytorch.org/whl/cu126 \
     && rm -rf /root/.cache/uv
 
 # Install core API dependencies using uv
