@@ -29,19 +29,21 @@ RUN useradd -m -u 1001 appuser && \
 
 WORKDIR /app
 
-# Install PyTorch CPU version first
-# CPU version works on both ARM64 (Mac M1/M2/M3/M4/M5) and x86_64
+# Install Moshi first with explicit version to avoid fake 0.0.0 placeholder
+# This will install the default torch (with CUDA) as a dependency
+# The fake moshi 0.0.0 is just moshi.py with "More to come"
+# The real moshi 0.2.11 is a full directory with models/, conditioners/, utils/
 RUN uv pip install --system --break-system-packages \
+    moshi==0.2.11 \
+    && rm -rf /root/.cache/uv
+
+# Replace CUDA torch with CPU torch for cross-platform compatibility
+# This works on both ARM64 (Mac M1/M2/M3/M4/M5) and x86_64
+RUN uv pip install --system --break-system-packages \
+    --force-reinstall --no-deps \
     torch \
     torchaudio \
     --extra-index-url https://download.pytorch.org/whl/cpu \
-    && rm -rf /root/.cache/uv
-
-# Install Moshi separately with explicit version to avoid fake 0.0.0 placeholder
-# The fake package is just moshi.py with "More to come"
-# The real package is a full directory with models/, conditioners/, utils/
-RUN uv pip install --system --break-system-packages \
-    moshi==0.2.11 \
     && rm -rf /root/.cache/uv
 
 # Install core API dependencies using uv
