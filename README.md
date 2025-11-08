@@ -220,25 +220,71 @@ curl -X POST http://localhost:8000/api/v1/tts/file \
 
 ## 🔧 Advanced Configuration
 
-### Environment Variables
+### Configuration Management
+
+The API uses **pydantic-settings** for type-safe configuration management. Configuration can be set via:
+
+1. **`.env` file** (local development)
+2. **Environment variables** (Docker/production)
+3. **Default values** (fallback)
+
+#### Setup for Local Development
 
 ```bash
-# Specify which GPU to use
-docker run -e CUDA_VISIBLE_DEVICES=0 ...
+# Copy the template
+cp .env.example .env
 
-# Change model cache directory
-docker run -e HF_HOME=/custom/path ...
-
-# Disable transformers cache
-docker run -e TRANSFORMERS_OFFLINE=1 ...
+# Edit .env with your settings
+nano .env
 ```
 
-### Model Customization
+**Important**: The `.env` file is gitignored and should never be committed!
 
-Edit `app_final.py` to change the model:
-```python
-DEFAULT_TTS_REPO = "kyutai/tts-1.6b-en_fr"  # or another model
-DEFAULT_VOICE_REPO = "kyutai/tts-voices"
+#### Available Configuration Options
+
+See `.env.example` for all available settings:
+
+```bash
+# Server
+HOST=0.0.0.0
+PORT=8000
+LOG_LEVEL=info
+WORKERS=1
+
+# Model Configuration
+DEFAULT_TTS_REPO=kyutai/tts-1.6b-en_fr
+DEFAULT_VOICE_REPO=kyutai/tts-voices
+SAMPLE_RATE=24000
+MODEL_DEVICE=cuda  # or cpu, auto-detected if not set
+MODEL_DTYPE=auto   # auto, bfloat16, or float32
+MODEL_N_Q=32       # Number of codebooks
+MODEL_TEMP=0.6     # Temperature for generation
+MODEL_CFG_COEF=2.0 # CFG coefficient
+
+# CORS
+CORS_ORIGINS=*  # Change in production!
+CORS_CREDENTIALS=true
+
+# Environment
+ENVIRONMENT=production
+DEBUG=false
+```
+
+#### Docker Configuration
+
+With Docker, set environment variables in `docker-compose.yml`:
+
+```yaml
+environment:
+  - DEFAULT_TTS_REPO=kyutai/tts-1.6b-en_fr
+  - SAMPLE_RATE=24000
+  - LOG_LEVEL=debug
+```
+
+Or pass them directly:
+
+```bash
+docker run -e LOG_LEVEL=debug -e MODEL_DEVICE=cpu ...
 ```
 
 ### Performance
