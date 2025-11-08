@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  moshi-tts-api:
+    build: .
+    image: moshi-tts-api:latest
+    container_name: moshi-tts-api
+    ports:
+      - "8000:8000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - TRANSFORMERS_CACHE=/app/models
+      - HF_HOME=/app/models
+    volumes:
+      # Mount model cache to avoid re-downloading
+      - ./models:/app/models
+      # Optional: mount for custom configurations
+      - ./config:/app/config
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    networks:
+      - moshi-network
+
+networks:
+  moshi-network:
+    driver: bridge
