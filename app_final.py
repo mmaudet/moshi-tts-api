@@ -10,7 +10,12 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
 from enum import Enum
-import torch
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    torch = None
 import numpy as np
 import io
 import wave
@@ -93,9 +98,15 @@ app.add_middleware(
 
 # Global variables
 model = None
+tts_model = None  # Real Moshi TTS model
 device = None
+cfg_coef_conditioning = None  # For CFG distillation
 executor = ThreadPoolExecutor(max_workers=2)
 SAMPLE_RATE = 24000  # Moshi uses 24kHz
+
+# Moshi TTS configuration
+DEFAULT_TTS_REPO = "kyutai/tts-1.6b-en_fr"
+DEFAULT_VOICE_REPO = "kyutai/tts-voices"
 
 # Enums for API
 class LanguageCode(str, Enum):
@@ -114,6 +125,22 @@ class AudioFormat(str, Enum):
     """Supported audio output formats"""
     wav = "wav"
     raw = "raw"
+
+class VoicePreset(str, Enum):
+    """Available voice presets from kyutai/tts-voices"""
+    # Default voice
+    default = "default"
+    # VCTK voices (Voice Cloning Toolkit) - use full filenames
+    vctk_p225 = "vctk/p225_023.wav"
+    vctk_p226 = "vctk/p226_023.wav"
+    vctk_p227 = "vctk/p227_023.wav"
+    vctk_p228 = "vctk/p228_023.wav"
+    vctk_p229 = "vctk/p229_023.wav"
+    vctk_p230 = "vctk/p230_023.wav"
+    vctk_p231 = "vctk/p231_023.wav"
+    vctk_p232 = "vctk/p232_023.wav"
+    vctk_p233 = "vctk/p233_023.wav"
+    vctk_p234 = "vctk/p234_023.wav"
 
 # Pydantic models for request/response validation
 class TTSRequest(BaseModel):
@@ -134,6 +161,11 @@ class TTSRequest(BaseModel):
         AudioFormat.wav,
         description="Output audio format",
         example="wav"
+    )
+    voice: VoicePreset = Field(
+        VoicePreset.default,
+        description="Voice preset to use for synthesis",
+        example="default"
     )
     
     @validator('text')
@@ -191,38 +223,74 @@ class ErrorResponse(BaseModel):
 
 # Model loading functions
 def load_moshi_model():
-    """Initialize the Moshi model"""
-    global model, device
-    
+    """Initialize the Moshi TTS model"""
+    global model, tts_model, device
+
     try:
-        # Add Moshi to path
-        import sys
-        moshi_path = "/tmp/moshi"
-        if not os.path.exists(moshi_path):
-            logger.info("Cloning Moshi repository...")
-            os.system(f"git clone https://github.com/kyutai-labs/moshi.git {moshi_path}")
-            os.system(f"cd {moshi_path} && pip install -e .")
-        
-        sys.path.insert(0, moshi_path)
-        
+        if not TORCH_AVAILABLE:
+            logger.warning("⚠️ PyTorch not available, using dummy model for testing")
+            model = "dummy"
+            device = "cpu"
+            return
+
         # Determine device
         device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Using device: {device}")
-        
-        # Import and initialize Moshi
-        from moshi import MoshiServer
-        
-        model = MoshiServer(
-            device=device,
-            # Moshi automatically handles language based on input
-        )
-        
-        logger.info("✅ Moshi model loaded successfully!")
-        
+
+        # Try to import and load the real Moshi TTS model
+        try:
+            from moshi.models.tts import TTSModel
+            from moshi.models.loaders import CheckpointInfo
+
+            logger.info(f"Loading Moshi TTS model from {DEFAULT_TTS_REPO}...")
+
+            # Load model checkpoint
+            checkpoint_info = CheckpointInfo.from_hf_repo(
+                DEFAULT_TTS_REPO,
+                None,  # moshi_weight
+                None,  # mimi_weight
+                None,  # tokenizer
+                None   # config
+            )
+
+            # Create TTS model
+            tts_model = TTSModel.from_checkpoint_info(
+                checkpoint_info,
+                voice_repo=DEFAULT_VOICE_REPO,
+                n_q=32,  # Number of codebooks
+                temp=0.6,  # Temperature
+                cfg_coef=2.0,  # CFG coefficient
+                device=device,
+                dtype=torch.bfloat16 if device == "cuda" else torch.float32
+            )
+
+            # Handle CFG distillation as per run_tts.py lines 92-100
+            global cfg_coef_conditioning
+            if tts_model.valid_cfg_conditionings:
+                # Model was trained with CFG distillation
+                cfg_coef_conditioning = tts_model.cfg_coef
+                tts_model.cfg_coef = 1.0  # Set to 1.0 for distilled model
+            else:
+                cfg_coef_conditioning = None
+
+            model = "moshi_tts"
+            logger.info("✅ Moshi TTS model loaded successfully!")
+
+        except ImportError as e:
+            logger.warning(f"⚠️ Moshi library not available: {e}")
+            logger.warning("⚠️ Using dummy model for testing")
+            model = "dummy"
+            device = "cpu"
+        except Exception as e:
+            logger.error(f"❌ Failed to load Moshi TTS model: {str(e)}")
+            logger.warning("⚠️ Falling back to dummy model")
+            model = "dummy"
+            device = "cpu"
+
     except Exception as e:
-        logger.error(f"❌ Failed to load Moshi model: {str(e)}")
-        # For testing, we'll create a dummy model
-        model = "dummy"  # This allows the API to start even without the real model
+        logger.error(f"❌ Unexpected error during model loading: {str(e)}")
+        model = "dummy"
+        device = "cpu"
 
 # Startup and shutdown events
 @app.on_event("startup")
@@ -243,17 +311,19 @@ async def shutdown_event():
     global model
     if model is not None:
         del model
-        if device == "cuda":
+        if TORCH_AVAILABLE and device == "cuda":
             torch.cuda.empty_cache()
     executor.shutdown(wait=True)
     logger.info("👋 Shutdown complete")
 
 # Utility functions
-def synthesize_text(text: str, language: str) -> np.ndarray:
+def synthesize_text(text: str, language: str, voice: str = "default") -> np.ndarray:
     """
     Synthesize audio from text
     Returns numpy array of audio samples
     """
+    global tts_model
+
     if model == "dummy":
         # Generate dummy audio for testing
         logger.warning("Using dummy audio generation for testing")
@@ -265,23 +335,69 @@ def synthesize_text(text: str, language: str) -> np.ndarray:
         # Add some variation
         audio += np.sin(2 * np.pi * frequency * 2 * t) * 0.1
         return audio
-    
-    # Actual Moshi synthesis would go here
-    # This is pseudo-code - adapt to actual Moshi API
+
+    # Use real Moshi TTS model
     try:
         with torch.no_grad():
-            # Moshi should handle the language internally
-            audio_data = model.synthesize(
-                text=text,
-                language=language
+            # Prepare text entries for TTS
+            entries = tts_model.prepare_script([text])
+
+            # Handle voice selection based on model type
+            voices = []
+            prefixes = None
+
+            if tts_model.multi_speaker:
+                # Multi-speaker model: pass voices to attributes
+                # For multi-speaker, we always need to provide a voice
+                if voice == "default":
+                    voice = "vctk/p225_023.wav"  # Use a known default voice
+                voice_path = tts_model.get_voice_path(voice)
+                voices = [voice_path]
+            else:
+                # Single-speaker model: use voice as prefix
+                # Use the first available voice or a specific default
+                if voice == "default":
+                    voice = "vctk/p225_023.wav"  # Use a known default voice
+                voice_path = tts_model.get_voice_path(voice)
+                prefixes = [tts_model.get_prefix(voice_path)]
+
+            # Create condition attributes with CFG distillation support
+            attributes = tts_model.make_condition_attributes(voices, cfg_coef_conditioning)
+
+            # Generate audio
+            result = tts_model.generate(
+                [entries],
+                [attributes],
+                prefixes=prefixes,
+                cfg_is_no_prefix=(prefixes is None),
+                cfg_is_no_text=True
             )
-            
-            if isinstance(audio_data, torch.Tensor):
-                audio_data = audio_data.cpu().numpy()
-            
+
+            # Decode frames to audio
+            wav_frames = []
+            with tts_model.mimi.streaming(1):
+                for frame in result.frames[tts_model.delay_steps:]:
+                    wav_frames.append(tts_model.mimi.decode(frame[:, 1:]))
+
+            wav = torch.cat(wav_frames, dim=-1)
+
+            # Get the actual generated audio length
+            end_step = result.end_steps[0]
+            if end_step is not None:
+                wav_length = int((tts_model.mimi.sample_rate * (end_step + tts_model.final_padding) / tts_model.mimi.frame_rate))
+                wav = wav[0, :, :wav_length]
+            else:
+                wav = wav[0, :, :]
+
+            # Convert to numpy and ensure mono
+            audio_data = wav.squeeze().cpu().numpy()
+
             return audio_data
+
     except Exception as e:
         logger.error(f"Synthesis error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise
 
 # API Endpoints
@@ -342,7 +458,7 @@ async def health_check():
 async def get_languages():
     """
     Get available languages
-    
+
     Returns a list of supported languages with their codes and descriptions
     """
     return {
@@ -354,6 +470,48 @@ async def get_languages():
             for lang in LanguageCode
         ]
     }
+
+@app.get(
+    "/api/v1/voices",
+    tags=["System"],
+    summary="List Available Voices",
+    description="Get list of available voice presets"
+)
+async def get_voices():
+    """
+    Get available voice presets
+
+    Returns a list of voice presets that can be used for synthesis
+    """
+    return {
+        "voices": [
+            {
+                "id": voice.value,
+                "name": voice.name,
+                "description": _get_voice_description(voice.value)
+            }
+            for voice in VoicePreset
+        ]
+    }
+
+def _get_voice_description(voice_id: str) -> str:
+    """Get description for a voice preset"""
+    descriptions = {
+        "default": "Default voice",
+        "vctk/p225_001": "VCTK Female (British English)",
+        "vctk/p226_001": "VCTK Male (British English)",
+        "vctk/p227_001": "VCTK Male (British English)",
+        "vctk/p228_001": "VCTK Female (British English)",
+        "vctk/p229_001": "VCTK Female (British English)",
+        "vctk/p230_001": "VCTK Female (British English)",
+        "vctk/p231_001": "VCTK Female (British English)",
+        "vctk/p232_001": "VCTK Male (British English)",
+        "vctk/p233_001": "VCTK Female (British English)",
+        "vctk/p234_001": "VCTK Female (British English)",
+        "cml-tts/fr/male_001": "French Male",
+        "cml-tts/fr/female_001": "French Female"
+    }
+    return descriptions.get(voice_id, "Unknown voice")
 
 @app.post(
     "/api/v1/synthesize",
@@ -402,15 +560,16 @@ async def synthesize(
         )
     
     try:
-        logger.info(f"Synthesizing text in {request.language}: '{request.text[:50]}...'")
-        
+        logger.info(f"Synthesizing text in {request.language} with voice {request.voice}: '{request.text[:50]}...'")
+
         # Run synthesis in thread pool
         loop = asyncio.get_event_loop()
         audio_data = await loop.run_in_executor(
             executor,
             synthesize_text,
             request.text,
-            request.language.value
+            request.language.value,
+            request.voice.value
         )
         
         # Ensure audio is 1D

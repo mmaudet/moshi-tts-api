@@ -1,19 +1,14 @@
-# Multi-stage build for efficiency
-# Use NVIDIA CUDA base image for GPU support
-FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04 AS base
+# CPU-only version of Moshi TTS API
+# Use this if you don't have GPU support
+FROM python:3.10-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    DEBIAN_FRONTEND=noninteractive \
-    TZ=UTC \
-    LANG=C.UTF-8 \
-    LC_ALL=C.UTF-8
+    DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    python3.10 \
-    python3-pip \
     curl \
     git \
     libsndfile1 \
@@ -26,12 +21,6 @@ RUN useradd -m -u 1000 appuser && \
 
 WORKDIR /app
 
-# Install PyTorch with CUDA support first
-RUN pip3 install --no-cache-dir \
-    torch==2.1.0 \
-    torchaudio==2.1.0 \
-    --index-url https://download.pytorch.org/whl/cu121
-
 # Install core API dependencies
 RUN pip3 install --no-cache-dir \
     fastapi==0.104.1 \
@@ -42,21 +31,22 @@ RUN pip3 install --no-cache-dir \
     python-multipart==0.0.6 \
     aiofiles==23.2.1
 
-# Install Moshi TTS from PyPI
-RUN pip3 install --no-cache-dir moshi
+# Note: Moshi with CPU-only PyTorch can be very slow
+# Uncomment the following to install Moshi for CPU
+# RUN pip3 install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+# RUN pip3 install --no-cache-dir moshi
 
 # Copy application files
-# Use app_final.py as the main application
 COPY --chown=appuser:appuser app_final.py /app/app.py
 
-# Switch to non-root user for security
+# Switch to non-root user
 USER appuser
 
 # Expose port
 EXPOSE 8000
 
-# Health check with correct endpoint
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
 # Run the application
