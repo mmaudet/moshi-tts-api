@@ -43,23 +43,32 @@ docker run -d --name moshi-tts-api \
     mmaudet/moshi-tts-api:latest
 ```
 
-#### MLX Version (Mac with Apple Silicon)
+#### Native macOS Installation (Recommended for Mac)
 
-**Optimized for Mac M1/M2/M3/M4/M5 with MLX framework:**
+**For Mac M1/M2/M3/M4/M5 - Uses MLX with Metal GPU acceleration:**
+
 ```bash
-docker run -d --name moshi-tts-api \
-    -p 8000:8000 \
-    -v moshi-models:/app/models \
-    mmaudet/moshi-tts-api:mlx
+# Clone the repository
+git clone https://github.com/mmaudet/moshi-tts-api.git
+cd moshi-tts-api
+
+# Run the installation script
+./install-macos-mlx.sh
+
+# Activate the virtual environment
+source venv-moshi-mlx/bin/activate
+
+# Start the API server
+python3 -m uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
-**Why MLX?**
-- 🚀 **Native ARM64 performance** - No emulation needed
-- ⚡ **Optimized for Apple Silicon** - Uses Metal GPU acceleration
-- 🎯 **Faster inference** - 2-3x faster than CPU/Rosetta 2 versions
-- 💪 **Better for Mac** - Designed specifically for M-series chips
+**Why native installation for Mac?**
+- 🚀 **Best performance** - Direct Metal GPU access (not possible in Docker)
+- ⚡ **MLX framework** - Apple's optimized ML framework for M-series chips
+- 🎯 **2-5x faster** - Compared to Docker or CPU versions
+- 💪 **No Docker overhead** - Native macOS performance
 
-**Note**: MLX version only works on Mac with Apple Silicon. For Linux or other platforms, use the GPU version.
+**Note**: MLX requires macOS and cannot run in Docker containers (Metal framework limitation)
 
 Access the API at: http://localhost:8000/docs
 
