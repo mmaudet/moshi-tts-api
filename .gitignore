@@ -22,7 +22,7 @@ coverage.xml
 .hypothesis/
 
 # Claude Code session files
-# Note: CLAUDE.md is kept in version control as project documentation
+CLAUDE.md
 
 # Virtual Environments
 bin/
