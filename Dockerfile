@@ -1,6 +1,6 @@
 # Multi-stage build for efficiency
-# Use NVIDIA CUDA base image for GPU support
-FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04 AS base
+# Use NVIDIA CUDA devel image for PyTorch compilation support
+FROM nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04 AS base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -8,15 +8,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DEBIAN_FRONTEND=noninteractive \
     TZ=UTC \
     LANG=C.UTF-8 \
-    LC_ALL=C.UTF-8
+    LC_ALL=C.UTF-8 \
+    TORCH_COMPILE_DISABLE=1
 
-# Install system dependencies
+# Install system dependencies including build tools for PyTorch Dynamo
 RUN apt-get update && apt-get install -y \
     python3.12 \
     python3.12-venv \
     curl \
     git \
     libsndfile1 \
+    build-essential \
+    gcc \
+    g++ \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.12 /usr/bin/python3
 
