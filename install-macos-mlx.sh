@@ -35,13 +35,48 @@ fi
 # Check Python version
 echo "🔍 Checking Python installation..."
 if ! command -v python3 &> /dev/null; then
-    echo "❌ Python 3 not found. Please install Python 3.10 or later"
+    echo "❌ Python 3 not found. Please install Python 3.10, 3.11, or 3.12"
     echo "   Visit: https://www.python.org/downloads/"
     exit 1
 fi
 
 PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
+PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d'.' -f1)
+PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d'.' -f2)
+
 echo "✓ Found Python $PYTHON_VERSION"
+
+# Check if Python version is compatible with MLX
+if [ "$PYTHON_MAJOR" -eq 3 ]; then
+    if [ "$PYTHON_MINOR" -lt 10 ] || [ "$PYTHON_MINOR" -gt 12 ]; then
+        echo ""
+        echo "❌ Error: Python $PYTHON_VERSION is not compatible with moshi-mlx"
+        echo "   MLX requires Python 3.10, 3.11, or 3.12"
+        echo ""
+        echo "📝 To fix this, install a compatible Python version:"
+        echo ""
+        echo "   Option 1: Using Homebrew and pyenv"
+        echo "   -----------------------------------"
+        echo "   brew install pyenv"
+        echo "   pyenv install 3.12"
+        echo "   pyenv local 3.12"
+        echo "   python3 --version  # Should show 3.12.x"
+        echo "   ./install-macos-mlx.sh"
+        echo ""
+        echo "   Option 2: Using python.org installer"
+        echo "   ------------------------------------"
+        echo "   Download Python 3.12 from: https://www.python.org/downloads/"
+        echo "   Then run: python3.12 -m venv venv-moshi-mlx"
+        echo ""
+        exit 1
+    fi
+else
+    echo "❌ Error: Python $PYTHON_VERSION is not supported"
+    echo "   Please install Python 3.10, 3.11, or 3.12"
+    exit 1
+fi
+
+echo "✓ Python version is compatible with MLX"
 
 # Create virtual environment
 VENV_DIR="venv-moshi-mlx"

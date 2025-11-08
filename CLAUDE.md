@@ -4,30 +4,65 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Moshi TTS API is a REST API wrapper around Kyutai Labs' Moshi text-to-speech model. It provides a FastAPI-based service with bilingual support (French and English), Swagger documentation, and Docker deployment. The API generates high-quality 24kHz audio in WAV or RAW format.
+Moshi TTS API is a REST API wrapper around Kyutai Labs' Moshi text-to-speech model. It provides a FastAPI-based service with bilingual support (French and English), 44 voice presets, Swagger documentation, and flexible deployment options (Docker with GPU/CPU, or native macOS with MLX).
 
 ## Development Commands
 
-### Local Development
-```bash
-# Install dependencies (without Moshi - dummy mode)
-pip install fastapi uvicorn pydantic numpy scipy python-multipart aiofiles
+### Local Development (Non-Docker)
 
-# Install with Moshi TTS (requires PyTorch and moshi package)
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121  # For CUDA 12.1
+```bash
+# Install dependencies (without Moshi - for testing API structure)
+pip install fastapi uvicorn pydantic pydantic-settings numpy scipy python-multipart aiofiles
+
+# Install with Moshi TTS (requires PyTorch)
+pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu126  # For CUDA 12.6
 pip install moshi
 
 # Run the API server locally
-python app_final.py
-# OR
-uvicorn app_final:app --host 0.0.0.0 --port 8000 --reload
+python app.py
+# OR with uvicorn directly
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
 # Access API documentation
 # Swagger UI: http://localhost:8000/docs
 # ReDoc: http://localhost:8000/redoc
 ```
 
+### Native macOS Installation (Apple Silicon)
+
+For Mac M1/M2/M3/M4/M5 users, use MLX for optimal Metal GPU acceleration:
+
+**Requirements:**
+- macOS with Apple Silicon (ARM64)
+- Python 3.10, 3.11, or 3.12 (MLX does not support Python 3.13+ yet)
+
+```bash
+# Check Python version
+python3 --version  # Must be 3.10.x, 3.11.x, or 3.12.x
+
+# If you have Python 3.13+, install a compatible version:
+brew install pyenv
+pyenv install 3.12
+pyenv local 3.12
+
+# Run installation script
+./install-macos-mlx.sh
+
+# Activate environment and start server
+source venv-moshi-mlx/bin/activate
+python3 -m uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+**Why MLX for macOS:**
+- Direct Metal GPU access (Docker cannot access Metal framework)
+- 2-5x faster than CPU/Docker versions
+- Optimized for Apple Silicon
+
+**Python Version Issues:**
+If installation fails with "no matching distributions available for mlx", you're likely using Python 3.13+. The installation script will now detect this and provide instructions.
+
 ### Testing
+
 ```bash
 # Run pytest tests
 pytest tests/ -v
@@ -35,25 +70,21 @@ pytest tests/ -v
 # Run tests with coverage
 pytest tests/ --cov=./ --cov-report=xml
 
-# Lint with flake8
-flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-
-# Test the API with provided script (requires running server)
+# Test the API (requires running server)
 chmod +x test_api.sh
 ./test_api.sh
 ```
 
 ### Docker Development
+
 ```bash
+# Quick build and run (GPU)
+./build-and-run.sh
+
 # Docker Compose with GPU (recommended)
 docker compose up -d --build
 
-# Docker Compose without GPU (CPU-only, uses dummy model)
-docker build -f Dockerfile.cpu -t moshi-tts-api:latest .
-docker run -d --name moshi-tts-api -p 8000:8000 -v $(pwd)/models:/app/models moshi-tts-api:latest
-
-# Manual Docker commands with GPU
+# Manual Docker with GPU
 docker build -t moshi-tts-api:latest .
 docker run -d --name moshi-tts-api -p 8000:8000 -v $(pwd)/models:/app/models --gpus all moshi-tts-api:latest
 
@@ -62,235 +93,211 @@ docker compose logs -f
 # OR
 docker logs -f moshi-tts-api
 
-# Stop and restart
-docker compose down
-docker compose up -d
-
 # Rebuild after code changes
 docker compose up -d --build
+
+# Stop and remove
+docker compose down
+docker rm -f moshi-tts-api
 ```
 
 ## Architecture
 
-### Application Files
+### Application Structure
 
-The repository contains multiple Python files representing different stages of development:
-- **app.py**: Original basic implementation using Moshi loaders directly
-- **app_improved.py**: Enhanced version with better error handling
-- **app_final.py**: Production-ready version with full Swagger documentation, proper validation, and comprehensive endpoints - **this is the version deployed in Docker**
+The codebase has a clean, modular structure:
 
-The Dockerfile explicitly uses `app_final.py` as the main application (copied to `app.py` in the container).
+- **app.py**: Main FastAPI application with all endpoints, model loading, and synthesis logic
+- **config.py**: Type-safe configuration management using pydantic-settings
+- **client.py**: Python client for programmatic API access (can be used as CLI or library)
 
-### Core Architecture
+### Key Architecture Patterns
 
-**FastAPI Application Structure** (app_final.py):
-- **Request/Response Models**: Pydantic models (TTSRequest, HealthResponse, ErrorResponse) with validation
-- **Enums**: LanguageCode (fr/en), AudioFormat (wav/raw)
+**Configuration Management** (config.py):
+- Uses pydantic-settings for type-safe configuration
+- Supports `.env` file (local dev), environment variables (Docker), and defaults
+- Cached singleton pattern via `@lru_cache()` for performance
+- All settings documented with Field descriptions
+
+**FastAPI Application** (app.py):
+- **Pydantic Models**: TTSRequest, HealthResponse, ErrorResponse with validation
+- **Enums**: LanguageCode (fr/en), AudioFormat (wav/raw), VoicePreset (44 voices)
 - **Global State**: Model loaded at startup, ThreadPoolExecutor for async synthesis
-- **Audio Processing**: 24kHz mono audio, NumPy arrays converted to WAV/RAW formats
+- **Audio Processing**: 24kHz mono, NumPy → int16 PCM → WAV/RAW
 - **API Versioning**: All endpoints prefixed with `/api/v1/`
+- **CORS Middleware**: Configurable via settings
 
-**Key Endpoints**:
-- `GET /`: API info and available endpoints
-- `GET /api/v1/health`: Health check with model status and device info
-- `GET /api/v1/languages`: List supported languages
-- `POST /api/v1/synthesize`: Main TTS endpoint (text → audio)
-- `POST /api/v1/synthesize/file`: TTS from uploaded text file
+**Threading Model**:
+- CPU-bound synthesis runs in ThreadPoolExecutor (2 workers default)
+- Uses `asyncio.run_in_executor()` to prevent blocking FastAPI event loop
+- Model lives in global state, shared across requests
 
-**Middleware**: CORS enabled for all origins (suitable for development/internal use)
+**Model Integration** (app.py:262-343):
+- Attempts to load real Moshi TTS model from `moshi.models.tts`
+- Device selection: CUDA auto-detected or forced via `MODEL_DEVICE` env var
+- Dtype: Auto (bfloat16 for CUDA, float32 for CPU) or forced via config
+- CFG Distillation: Handles distilled models by setting `cfg_coef_conditioning`
+- Fallback: Uses dummy sine wave generator if Moshi unavailable (for testing)
 
-### Model Integration
+**Synthesis Flow** (app.py:370-451):
+- Text → `prepare_script()` → voice selection → `make_condition_attributes()`
+- Generate frames → decode with MIMI → trim to `end_steps` → convert to NumPy
+- Handles both multi-speaker (voices in attributes) and single-speaker (voices as prefixes) models
 
-The application expects to integrate with Moshi via:
-1. Cloning the Moshi repository to `/tmp/moshi` (in Docker or at startup)
-2. Installing Moshi with `pip install -e .`
-3. Importing from `moshi.models` or `moshi` module
-4. Creating a model instance with device selection (CUDA/CPU)
+### API Endpoints
 
-**Note**: The current implementation includes a dummy audio generator fallback for testing when the actual Moshi model is unavailable. This generates sine wave audio based on text length.
+All endpoints are under `/api/v1/` for versioning:
+
+- `GET /` - API info and endpoint list
+- `GET /api/v1/health` - Health check with model status, device info
+- `GET /api/v1/languages` - List supported languages (fr, en)
+- `GET /api/v1/voices` - List all 44 voice presets with descriptions
+- `POST /api/v1/tts` - Main TTS endpoint (JSON → audio file)
+- `POST /api/v1/tts/file` - TTS from uploaded text file
+
+### Voice Presets
+
+44 voices from 4 collections (see VoicePreset enum in app.py:127-182):
+- **VCTK** (10 voices): British English speakers (p225-p234)
+- **CML-TTS** (10 voices): High-quality French speakers
+- **Expresso** (9 voices): English with emotions (happy, angry, calm, confused) and styles (whisper, fast, enunciated)
+- **EARS** (14 voices): Diverse English speakers (subset of 50)
+
+Voice selection: Pass `"voice": "vctk/p226_023.wav"` or use enum name `"voice": "vctk_p226"`
 
 ### Docker Architecture
 
-Multi-stage Docker build based on `nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04`:
-- Installs Python 3.10, system dependencies (ffmpeg, libsndfile1)
-- PyTorch 2.1.0 with CUDA 12.1 support
-- Clones and installs Moshi from GitHub
-- Runs as non-root user (appuser) for security
-- Health check on `/api/v1/health` endpoint
-- Model cache persisted via volume mount at `/app/models`
+**GPU Image** (Dockerfile):
+- Base: `nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04`
+- Python 3.12, system deps (git, libsndfile1, build tools)
+- Uses `uv` package manager (10-100x faster than pip)
+- Installs PyTorch + moshi together to avoid duplicate downloads
+- Runs as non-root user `appuser` (UID 1001) for security
+- Health check on `/api/v1/health`
+- Model cache at `/app/models` (volume mount)
+
+**Multi-architecture**: GitHub Actions workflow supports `linux/amd64` (GPU) builds
+
+### Configuration
+
+Environment variables (see config.py for all options):
+
+```bash
+# Server
+HOST=0.0.0.0
+PORT=8000
+LOG_LEVEL=info
+WORKERS=1
+
+# Model
+DEFAULT_TTS_REPO=kyutai/tts-1.6b-en_fr
+DEFAULT_VOICE_REPO=kyutai/tts-voices
+SAMPLE_RATE=24000
+MODEL_DEVICE=cuda  # or cpu, auto if not set
+MODEL_DTYPE=auto   # auto, bfloat16, or float32
+MODEL_N_Q=32
+MODEL_TEMP=0.6
+MODEL_CFG_COEF=2.0
+
+# CORS
+CORS_ORIGINS=*
+CORS_CREDENTIALS=true
+```
+
+Set via `.env` file (local), Docker environment, or docker-compose.yml.
 
 ## Important Implementation Details
 
 ### Audio Processing
-- Sample rate: 24kHz (fixed)
+- Sample rate: **24kHz** (fixed, do not change without model retraining)
 - Format: Mono channel, 16-bit signed integer PCM
-- WAV format: Standard WAVE file with proper headers
-- RAW format: PCM data only (requires ffmpeg to convert: `ffmpeg -f s16le -ar 24000 -ac 1 -i input.raw output.wav`)
+- WAV: Standard RIFF WAVE with headers
+- RAW: PCM only (convert: `ffmpeg -f s16le -ar 24000 -ac 1 -i input.raw output.wav`)
 
 ### Input Validation
-- Text length: 1-5000 characters
-- Whitespace is normalized automatically
-- Languages: "fr" (French) or "en" (English)
-- File upload: Must be UTF-8 encoded text
-
-### Threading Model
-- ThreadPoolExecutor with 2 workers for CPU-bound synthesis
-- Async synthesis using `asyncio.run_in_executor()`
-- Prevents blocking the FastAPI event loop during model inference
+- Text length: 1-5000 characters (configurable via `MAX_TEXT_LENGTH`)
+- Whitespace normalized automatically (app.py:209-216)
+- Languages: "fr" or "en"
+- File upload: Must be UTF-8
 
 ### Error Handling
-- Custom exception handlers for HTTPException and ValueError
+- Custom HTTPException and ValueError handlers (app.py:761-783)
 - Model availability checks before synthesis
-- Graceful degradation with dummy model fallback (for development/testing)
+- Graceful fallback to dummy model (generates sine waves for testing)
 
-## Environment Variables
+### Startup/Shutdown
+- `@app.on_event("startup")`: Loads model, handles errors gracefully
+- `@app.on_event("shutdown")`: Cleans up model, empties CUDA cache, shuts down executor
 
-Key environment variables that can be configured:
-- `CUDA_VISIBLE_DEVICES`: Specify which GPU to use
-- `HF_HOME`: Custom path for Hugging Face model cache
-- `TRANSFORMERS_OFFLINE`: Disable online model downloads
+## CI/CD
 
-## CI/CD Pipeline
+GitHub Actions workflow (`.github/workflows/docker-publish.yml`):
+- **Triggers**: Push to main/master, PRs, tags (v*.*.*)
+- **Build**: Docker image for `linux/amd64` with buildx caching
+- **Push**: To Docker Hub (on non-PR events)
+- **Tags**: `latest` (main branch), semver (v1.0.0 → 1.0.0, 1.0, 1), SHA
+- **Description**: Updates Docker Hub README from repo README.md
 
-GitHub Actions workflow (`.github/workflows/ci.yml`) includes:
-1. **Test Job**: Python setup, dependency installation, flake8 linting, pytest with coverage
-2. **Build Job**: Docker image build with caching, optional push to Docker Hub on releases
-3. **Security Scan Job**: Trivy vulnerability scanning with SARIF upload
-
-Triggers on: push to main/develop, pull requests to main, and release creation.
+Secrets required: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
 
 ## Client Integration
 
-The `client.py` file provides a Python client class (`MoshiTTSClient`) for programmatic API access with methods for synthesis, health checks, and language listing.
+**Python Client** (client.py):
+```python
+from client import MoshiTTSClient
+
+client = MoshiTTSClient("http://localhost:8000")
+client.health_check()
+client.synthesize("Hello world", language="en", output_file="output.wav")
+```
+
+**CLI**:
+```bash
+python client.py -t "Bonjour" -l fr -o test.wav
+python client.py --health
+python client.py --languages
+```
 
 ## Testing Strategy
 
-The test suite (`tests/test_basic.py`) validates:
-- Module imports
-- API structure (enums, models)
-- Client instantiation
+- **Unit tests**: tests/test_basic.py (module imports, API structure)
+- **Integration tests**: test_api.sh (bash script testing all endpoints)
+- **Pytest config**: pyproject.toml with coverage settings
 
-The `test_api.sh` script provides comprehensive integration testing:
-- All API endpoints
-- Both languages (French/English)
-- Different output formats (WAV/RAW)
-- Long text handling
-- Error cases
-- Documentation availability
+## Common Tasks
 
----
+### Adding a New Endpoint
+1. Define Pydantic request/response models in app.py
+2. Add endpoint function with `@app.get()` or `@app.post()` decorator
+3. Use appropriate tags (TTS or System) for documentation
+4. Add tests to test_api.sh
 
-# Session 2025-11-08: CPU Docker Image Fix
+### Changing Model Configuration
+1. Update Settings class in config.py
+2. Add Field with description and default
+3. Use in app.py via `settings.your_field`
+4. Document in .env.example (if exists) or README
 
-## Problem Discovered
+### Debugging Model Loading
+Check logs for:
+- "✅ Moshi TTS model loaded successfully!" - Real model loaded
+- "⚠️ Using dummy model for testing" - Fallback mode (generates sine waves)
+- "⚠️ PyTorch not available" - Missing PyTorch
+- "⚠️ Moshi library not available" - Missing moshi package
 
-The CPU Docker image (`mmaudet/moshi-tts-api:cpu`) was installing a **fake placeholder package** (`moshi 0.0.0`) instead of the real Moshi package from Kyutai (`moshi 0.2.11`).
+Verify model: `docker exec moshi-tts-api python3 -c "import moshi; print(moshi.__version__)"`
 
-### Symptoms
-- Container logged: `⚠️ Moshi library not available: No module named 'moshi.models'`
-- API generated continuous sound instead of voice synthesis
-- Using dummy model fallback instead of real TTS
+### Performance Optimization
+- **GPU**: Real-time or faster generation
+- **CPU**: 2-10x real-time depending on CPU
+- **Memory**: ~6GB for bf16 model
+- **First request**: Slower (model loading and caching)
+- **macOS MLX**: 2-5x faster than Docker/CPU on Apple Silicon
 
-## Root Cause Analysis
+## Deployment Notes
 
-Investigated and found:
-1. PyPI has **multiple versions** of the `moshi` package:
-   - `0.0.0` - Empty placeholder with just `"""More to come"""`
-   - `0.2.11` - Real package from Kyutai Labs with full TTS functionality
-
-2. The installation command was correct: `uv pip install moshi --extra-index-url https://download.pytorch.org/whl/cpu`
-
-3. The issue was **NOT** with the Dockerfile itself - testing showed it correctly installs `moshi 0.2.11`
-
-4. The Docker Hub image was built from an **older commit** before the fixes
-
-## Solution
-
-### Fixed Issues (Already Committed)
-1. ✅ Changed `--index-url` to `--extra-index-url` to keep PyPI access
-2. ✅ Added quotes around package versions to prevent shell redirection
-3. ✅ GitHub Actions successfully rebuilt both GPU and CPU images
-
-### Latest Status
-- **Docker Hub image**: `mmaudet/moshi-tts-api:cpu` - ✅ FIXED (now has moshi 0.2.11)
-- **Build status**: GitHub Actions completed successfully
-- **Verification**: Tested and confirmed working with real Moshi package
-
-## For Users: How to Update
-
-If you're experiencing the dummy audio issue:
-
-### Option 1: Pull Latest Image (Recommended)
-```bash
-# Stop and remove old container
-docker stop moshi-tts-api 2>/dev/null
-docker rm moshi-tts-api 2>/dev/null
-
-# Pull latest fixed image
-docker pull mmaudet/moshi-tts-api:cpu
-
-# Start new container
-docker run -d --name moshi-tts-api \
-    -p 8000:8000 \
-    -v moshi-models:/app/models \
-    mmaudet/moshi-tts-api:cpu
-
-# Check logs to verify real model loaded
-docker logs -f moshi-tts-api
-```
-
-### Option 2: Use Helper Script
-A script has been created at `/tmp/recreate_container.sh` to automate the update process.
-
-```bash
-chmod +x /tmp/recreate_container.sh
-/tmp/recreate_container.sh
-```
-
-### Verify the Fix
-After updating, check that the real Moshi model is loaded:
-
-```bash
-docker exec moshi-tts-api python3 -c "import moshi; print(f'Moshi version: {moshi.__version__}')"
-```
-
-Expected output: `Moshi version: 0.2.11`
-
-If you see `0.0.0`, you're still using the old image - try:
-```bash
-docker pull --no-cache mmaudet/moshi-tts-api:cpu
-```
-
-## Technical Details
-
-### Moshi Package Versions on PyPI
-```
-Available versions: 0.2.11, 0.2.10, 0.2.9, ..., 0.2.1, 0.1.0, 0.0.0
-Latest: 0.2.11 (real package from Kyutai Labs)
-```
-
-### Package Dependencies
-The real `moshi 0.2.11` package includes:
-- `torch`, `torchaudio` (can use CPU or CUDA versions)
-- `aiohttp`, `huggingface-hub`, `safetensors`
-- `sentencepiece`, `sounddevice`, `sphn`
-- `einops`, `bitsandbytes`
-
-### Build Verification Commands
-```bash
-# Check Dockerfile.cpu builds correctly
-docker build -f Dockerfile.cpu -t test-cpu .
-
-# Verify moshi version
-docker run --rm test-cpu python3 -c "import moshi; print(moshi.__version__)"
-
-# Check it has models module
-docker run --rm test-cpu python3 -c "import moshi.models; print('OK')"
-```
-
-## Related GitHub Actions Run
-- Workflow: "Build and Push Docker Image"
-- Run ID: 19191391866
-- Status: ✅ Success
-- Duration: 1m28s
-- Commit: "Fix shell redirection issue in Dockerfile.cpu with quoted package versions"
+- **Docker Hub**: Images at `mmaudet/moshi-tts-api:latest`
+- **Model caching**: Always mount `/app/models` volume to avoid re-downloading
+- **Security**: Container runs as non-root user (appuser UID 1001)
+- **CORS**: Default is `*` (all origins) - restrict in production
+- **Health checks**: Built into Docker with 30s interval
