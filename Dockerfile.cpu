@@ -33,10 +33,11 @@ WORKDIR /app
 # CPU version works on both ARM64 (Mac M1/M2/M3/M4/M5) and x86_64
 # Use --extra-index-url (not --index-url) to keep access to PyPI for moshi
 # Note: CPU inference is slower than GPU but works everywhere
+# IMPORTANT: Specify moshi==0.2.11 explicitly to avoid fake 0.0.0 placeholder package
 RUN uv pip install --system --break-system-packages \
     torch \
     torchaudio \
-    moshi \
+    'moshi==0.2.11' \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     && rm -rf /root/.cache/uv
 
