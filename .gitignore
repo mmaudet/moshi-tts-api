@@ -6,6 +6,7 @@ __pycache__/
 .Python
 env/
 venv/
+venv-moshi-mlx/
 ENV/
 env.bak/
 venv.bak/
@@ -19,6 +20,9 @@ pip-delete-this-directory.txt
 coverage.xml
 *.cover
 .hypothesis/
+
+# Claude Code session files
+CLAUDE.md
 
 # Virtual Environments
 bin/
