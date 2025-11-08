@@ -29,21 +29,34 @@ RUN useradd -m -u 1001 appuser && \
 
 WORKDIR /app
 
-# Install Moshi first with explicit version to avoid fake 0.0.0 placeholder
-# This will install the default torch (with CUDA) as a dependency
-# The fake moshi 0.0.0 is just moshi.py with "More to come"
-# The real moshi 0.2.11 is a full directory with models/, conditioners/, utils/
-RUN uv pip install --system --break-system-packages \
-    moshi==0.2.11 \
-    && rm -rf /root/.cache/uv
-
-# Replace CUDA torch with CPU torch for cross-platform compatibility
+# Install PyTorch CPU version first for cross-platform compatibility
 # This works on both ARM64 (Mac M1/M2/M3/M4/M5) and x86_64
 RUN uv pip install --system --break-system-packages \
-    --force-reinstall --no-deps \
     torch \
     torchaudio \
     --extra-index-url https://download.pytorch.org/whl/cpu \
+    && rm -rf /root/.cache/uv
+
+# Install Moshi dependencies (excluding bitsandbytes which is x86_64 only)
+# bitsandbytes is only used for quantization, not needed for CPU inference
+RUN uv pip install --system --break-system-packages \
+    numpy \
+    aiohttp \
+    'huggingface-hub>=0.20' \
+    safetensors \
+    sentencepiece \
+    sounddevice \
+    sphn \
+    einops \
+    && rm -rf /root/.cache/uv
+
+# Install Moshi 0.2.11 without dependencies (--no-deps)
+# This avoids bitsandbytes ARM64 incompatibility while getting real moshi package
+# The fake moshi 0.0.0 is just moshi.py with "More to come"
+# The real moshi 0.2.11 is a full directory with models/, conditioners/, utils/
+RUN uv pip install --system --break-system-packages \
+    --no-deps \
+    moshi==0.2.11 \
     && rm -rf /root/.cache/uv
 
 # Install core API dependencies using uv
