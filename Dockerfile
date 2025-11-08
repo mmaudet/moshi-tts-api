@@ -1,6 +1,6 @@
 # Multi-stage build for efficiency
 # Use NVIDIA CUDA base image for GPU support
-FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04 AS base
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04 AS base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -12,7 +12,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    python3.10 \
+    python3.12 \
     python3-pip \
     curl \
     git \
@@ -20,31 +20,34 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user for security
-RUN useradd -m -u 1000 appuser && \
+# Use UID 1001 to avoid conflict with ubuntu user (UID 1000) in Ubuntu 24.04
+RUN useradd -m -u 1001 appuser && \
     mkdir -p /app /app/models && \
     chown -R appuser:appuser /app
 
 WORKDIR /app
 
-# Install PyTorch with CUDA support first
-RUN pip3 install --no-cache-dir \
-    torch==2.1.0 \
-    torchaudio==2.1.0 \
-    --index-url https://download.pytorch.org/whl/cu121
+# Install PyTorch with CUDA 12.6 support first
+# Ubuntu 24.04 requires --break-system-packages for system-wide pip install
+RUN pip3 install --no-cache-dir --break-system-packages \
+    torch \
+    torchaudio \
+    --index-url https://download.pytorch.org/whl/cu126
 
 # Install core API dependencies
-RUN pip3 install --no-cache-dir \
-    fastapi==0.104.1 \
-    uvicorn[standard]==0.24.0 \
-    pydantic==2.4.2 \
-    pydantic-settings==2.1.0 \
-    numpy==1.24.3 \
-    scipy==1.11.4 \
-    python-multipart==0.0.6 \
-    aiofiles==23.2.1
+# Updated versions for Python 3.12 compatibility
+RUN pip3 install --no-cache-dir --break-system-packages \
+    fastapi>=0.104.1 \
+    uvicorn[standard]>=0.24.0 \
+    pydantic>=2.4.2 \
+    pydantic-settings>=2.1.0 \
+    numpy>=1.26.0 \
+    scipy>=1.11.4 \
+    python-multipart>=0.0.6 \
+    aiofiles>=23.2.1
 
 # Install Moshi TTS from PyPI
-RUN pip3 install --no-cache-dir moshi
+RUN pip3 install --no-cache-dir --break-system-packages moshi
 
 # Copy application files
 COPY --chown=appuser:appuser app.py /app/app.py

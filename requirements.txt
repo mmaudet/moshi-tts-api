@@ -10,13 +10,14 @@ scipy==1.11.4
 wave
 soundfile==0.12.1
 
-# ML dependencies
-torch==2.1.0
-torchaudio==2.1.0
-transformers==4.35.2
-huggingface_hub==0.19.4
-sentencepiece==0.1.99
-safetensors==0.4.1
+# ML dependencies (installed via Docker with CUDA 12.6)
+# torch and torchaudio installed from cu126 wheel index
+torch>=2.7.0
+torchaudio>=2.7.0
+transformers>=4.35.2
+huggingface_hub>=0.19.4
+sentencepiece>=0.1.99
+safetensors>=0.4.1
 
 # Utilities
 python-multipart==0.0.6
