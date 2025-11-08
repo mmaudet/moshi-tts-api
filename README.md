@@ -1,8 +1,9 @@
 # 🎙️ Moshi TTS API
 
+[![Docker Hub](https://img.shields.io/docker/v/mmaudet/moshi-tts-api?label=Docker%20Hub&logo=docker)](https://hub.docker.com/r/mmaudet/moshi-tts-api)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-green.svg)](https://fastapi.tiangolo.com/)
-[![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.12-yellow.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-red.svg)](LICENSE)
 
 REST API for text-to-speech synthesis using [Moshi model from Kyutai Labs](https://github.com/kyutai-labs/moshi), with interactive Swagger documentation and Docker deployment.
@@ -28,7 +29,28 @@ REST API for text-to-speech synthesis using [Moshi model from Kyutai Labs](https
 - At least 8GB RAM
 - ~10GB disk space for the model
 
-### Installation
+### Option 1: Using Pre-built Image (Recommended ⚡)
+
+The fastest way to get started! No need to clone or build.
+
+```bash
+# With GPU support
+docker run -d --name moshi-tts-api \
+    -p 8000:8000 \
+    -v moshi-models:/app/models \
+    --gpus all \
+    mmaudet/moshi-tts-api:latest
+
+# CPU only
+docker run -d --name moshi-tts-api \
+    -p 8000:8000 \
+    -v moshi-models:/app/models \
+    mmaudet/moshi-tts-api:latest
+```
+
+Access the API at: http://localhost:8000/docs
+
+### Option 2: Build from Source
 
 1. **Clone the project**
 ```bash
@@ -62,8 +84,17 @@ docker run -d --name moshi-tts-api \
     moshi-tts-api:latest
 ```
 
-### With Docker Compose
+### Option 3: With Docker Compose
 
+**Using pre-built image** (update `docker-compose.yml`):
+```yaml
+services:
+  moshi-tts-api:
+    image: mmaudet/moshi-tts-api:latest
+    # Remove the 'build: .' line
+```
+
+**Building from source**:
 ```bash
 # With GPU (default)
 docker compose up -d
