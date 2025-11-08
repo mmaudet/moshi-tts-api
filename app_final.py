@@ -538,19 +538,59 @@ async def get_voices():
 def _get_voice_description(voice_id: str) -> str:
     """Get description for a voice preset"""
     descriptions = {
-        "default": "Default voice",
-        "vctk/p225_001": "VCTK Female (British English)",
-        "vctk/p226_001": "VCTK Male (British English)",
-        "vctk/p227_001": "VCTK Male (British English)",
-        "vctk/p228_001": "VCTK Female (British English)",
-        "vctk/p229_001": "VCTK Female (British English)",
-        "vctk/p230_001": "VCTK Female (British English)",
-        "vctk/p231_001": "VCTK Female (British English)",
-        "vctk/p232_001": "VCTK Male (British English)",
-        "vctk/p233_001": "VCTK Female (British English)",
-        "vctk/p234_001": "VCTK Female (British English)",
-        "cml-tts/fr/male_001": "French Male",
-        "cml-tts/fr/female_001": "French Female"
+        # Default
+        "default": "Default voice (VCTK p225)",
+
+        # VCTK voices (English - Voice Cloning Toolkit)
+        "vctk/p225_023.wav": "VCTK English - Female speaker p225",
+        "vctk/p226_023.wav": "VCTK English - Male speaker p226",
+        "vctk/p227_023.wav": "VCTK English - Male speaker p227",
+        "vctk/p228_023.wav": "VCTK English - Female speaker p228",
+        "vctk/p229_023.wav": "VCTK English - Female speaker p229",
+        "vctk/p230_023.wav": "VCTK English - Female speaker p230",
+        "vctk/p231_023.wav": "VCTK English - Female speaker p231",
+        "vctk/p232_023.wav": "VCTK English - Male speaker p232",
+        "vctk/p233_023.wav": "VCTK English - Female speaker p233",
+        "vctk/p234_023.wav": "VCTK English - Female speaker p234",
+
+        # CML-TTS French voices
+        "cml-tts/fr/1406_1028_000009-0003.wav": "French - Speaker 1406",
+        "cml-tts/fr/1591_1028_000108-0004.wav": "French - Speaker 1591",
+        "cml-tts/fr/1770_1028_000036-0002.wav": "French - Speaker 1770",
+        "cml-tts/fr/2114_1656_000053-0001.wav": "French - Speaker 2114",
+        "cml-tts/fr/2154_2576_000020-0003.wav": "French - Speaker 2154",
+        "cml-tts/fr/2216_1745_000007-0001.wav": "French - Speaker 2216",
+        "cml-tts/fr/2223_1745_000009-0002.wav": "French - Speaker 2223",
+        "cml-tts/fr/2465_1943_000152-0002.wav": "French - Speaker 2465",
+        "cml-tts/fr/296_1028_000022-0001.wav": "French - Speaker 296",
+        "cml-tts/fr/3267_1902_000075-0001.wav": "French - Speaker 3267",
+
+        # Expresso voices (English with emotions/styles)
+        "expresso/ex01-ex02_default_001_channel1_168s.wav": "English - Default speaking style",
+        "expresso/ex01-ex02_enunciated_001_channel1_432s.wav": "English - Enunciated speaking style",
+        "expresso/ex01-ex02_fast_001_channel1_104s.wav": "English - Fast speaking style",
+        "expresso/ex01-ex02_projected_001_channel1_46s.wav": "English - Projected speaking style",
+        "expresso/ex01-ex02_whisper_001_channel1_579s.wav": "English - Whisper speaking style",
+        "expresso/ex03-ex01_angry_001_channel1_201s.wav": "English - Angry emotion",
+        "expresso/ex03-ex01_happy_001_channel1_334s.wav": "English - Happy emotion",
+        "expresso/ex03-ex01_calm_001_channel1_1143s.wav": "English - Calm emotion",
+        "expresso/ex03-ex01_confused_001_channel1_909s.wav": "English - Confused emotion",
+
+        # EARS voices (English - diverse speakers)
+        "ears/p001/freeform_speech_01.wav": "EARS English - Speaker p001",
+        "ears/p002/freeform_speech_01.wav": "EARS English - Speaker p002",
+        "ears/p003/freeform_speech_01.wav": "EARS English - Speaker p003",
+        "ears/p004/freeform_speech_01.wav": "EARS English - Speaker p004",
+        "ears/p005/freeform_speech_01.wav": "EARS English - Speaker p005",
+        "ears/p010/freeform_speech_01.wav": "EARS English - Speaker p010",
+        "ears/p015/freeform_speech_01.wav": "EARS English - Speaker p015",
+        "ears/p020/freeform_speech_01.wav": "EARS English - Speaker p020",
+        "ears/p025/freeform_speech_01.wav": "EARS English - Speaker p025",
+        "ears/p030/freeform_speech_01.wav": "EARS English - Speaker p030",
+        "ears/p035/freeform_speech_01.wav": "EARS English - Speaker p035",
+        "ears/p040/freeform_speech_01.wav": "EARS English - Speaker p040",
+        "ears/p045/freeform_speech_01.wav": "EARS English - Speaker p045",
+        "ears/p050/freeform_speech_01.wav": "EARS English - Speaker p050",
     }
     return descriptions.get(voice_id, "Unknown voice")
 
