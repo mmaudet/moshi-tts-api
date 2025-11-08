@@ -37,6 +37,7 @@ RUN pip3 install --no-cache-dir \
     fastapi==0.104.1 \
     uvicorn[standard]==0.24.0 \
     pydantic==2.4.2 \
+    pydantic-settings==2.1.0 \
     numpy==1.24.3 \
     scipy==1.11.4 \
     python-multipart==0.0.6 \
@@ -47,6 +48,7 @@ RUN pip3 install --no-cache-dir moshi
 
 # Copy application files
 COPY --chown=appuser:appuser app.py /app/app.py
+COPY --chown=appuser:appuser config.py /app/config.py
 
 # Switch to non-root user for security
 USER appuser

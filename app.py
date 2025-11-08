@@ -27,16 +27,18 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
+# Import configuration
+from config import get_settings
+
+# Load settings
+settings = get_settings()
+
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, settings.log_level.upper()),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-# API Metadata for Swagger
-API_VERSION = "1.0.0"
-API_TITLE = "Moshi TTS API"
 API_DESCRIPTION = """
 ## 🎯 Moshi Text-to-Speech API
 
@@ -71,9 +73,9 @@ tags_metadata = [
 
 # Create FastAPI app with rich documentation
 app = FastAPI(
-    title=API_TITLE,
+    title=settings.api_title,
     description=API_DESCRIPTION,
-    version=API_VERSION,
+    version=settings.api_version,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_tags=tags_metadata,
@@ -90,10 +92,10 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=settings.cors_credentials,
+    allow_methods=["*"] if settings.cors_methods == "*" else settings.cors_methods.split(","),
+    allow_headers=["*"] if settings.cors_headers == "*" else settings.cors_headers.split(","),
 )
 
 # Global variables
@@ -101,12 +103,8 @@ model = None
 tts_model = None  # Real Moshi TTS model
 device = None
 cfg_coef_conditioning = None  # For CFG distillation
-executor = ThreadPoolExecutor(max_workers=2)
-SAMPLE_RATE = 24000  # Moshi uses 24kHz
-
-# Moshi TTS configuration
-DEFAULT_TTS_REPO = "kyutai/tts-1.6b-en_fr"
-DEFAULT_VOICE_REPO = "kyutai/tts-voices"
+executor = ThreadPoolExecutor(max_workers=settings.max_workers)
+SAMPLE_RATE = settings.sample_rate
 
 # Enums for API
 class LanguageCode(str, Enum):
@@ -187,9 +185,9 @@ class TTSRequest(BaseModel):
     """Text-to-Speech synthesis request"""
     text: str = Field(
         ...,
-        description="Text to synthesize (max 5000 characters)",
+        description=f"Text to synthesize (max {settings.max_text_length} characters)",
         min_length=1,
-        max_length=5000,
+        max_length=settings.max_text_length,
         example="Bonjour, ceci est un test de synthèse vocale."
     )
     language: LanguageCode = Field(
@@ -273,35 +271,47 @@ def load_moshi_model():
             device = "cpu"
             return
 
-        # Determine device
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        logger.info(f"Using device: {device}")
+        # Determine device (allow override from settings)
+        if settings.model_device:
+            device = settings.model_device
+            logger.info(f"Using forced device from config: {device}")
+        else:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            logger.info(f"Auto-detected device: {device}")
 
         # Try to import and load the real Moshi TTS model
         try:
             from moshi.models.tts import TTSModel
             from moshi.models.loaders import CheckpointInfo
 
-            logger.info(f"Loading Moshi TTS model from {DEFAULT_TTS_REPO}...")
+            logger.info(f"Loading Moshi TTS model from {settings.default_tts_repo}...")
 
             # Load model checkpoint
             checkpoint_info = CheckpointInfo.from_hf_repo(
-                DEFAULT_TTS_REPO,
+                settings.default_tts_repo,
                 None,  # moshi_weight
                 None,  # mimi_weight
                 None,  # tokenizer
                 None   # config
             )
 
+            # Determine dtype
+            if settings.model_dtype == "auto":
+                model_dtype = torch.bfloat16 if device == "cuda" else torch.float32
+            elif settings.model_dtype == "bfloat16":
+                model_dtype = torch.bfloat16
+            else:
+                model_dtype = torch.float32
+
             # Create TTS model
             tts_model = TTSModel.from_checkpoint_info(
                 checkpoint_info,
-                voice_repo=DEFAULT_VOICE_REPO,
-                n_q=32,  # Number of codebooks
-                temp=0.6,  # Temperature
-                cfg_coef=2.0,  # CFG coefficient
+                voice_repo=settings.default_voice_repo,
+                n_q=settings.model_n_q,
+                temp=settings.model_temp,
+                cfg_coef=settings.model_cfg_coef,
                 device=device,
-                dtype=torch.bfloat16 if device == "cuda" else torch.float32
+                dtype=model_dtype
             )
 
             # Handle CFG distillation as per run_tts.py lines 92-100
@@ -486,7 +496,7 @@ async def health_check():
         model_loaded=model is not None,
         device=device if device else "not initialized",
         available_languages=[lang.value for lang in LanguageCode],
-        api_version=API_VERSION,
+        api_version=settings.api_version,
         timestamp=datetime.utcnow()
     )
 

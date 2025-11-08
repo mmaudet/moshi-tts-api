@@ -6,9 +6,31 @@ services:
     ports:
       - "8000:8000"
     environment:
+      # GPU Configuration
       - CUDA_VISIBLE_DEVICES=0
+
+      # Model cache directories
       - TRANSFORMERS_CACHE=/app/models
       - HF_HOME=/app/models
+
+      # Server configuration
+      - HOST=0.0.0.0
+      - PORT=8000
+      - LOG_LEVEL=info
+      - WORKERS=1
+
+      # Model configuration
+      - DEFAULT_TTS_REPO=kyutai/tts-1.6b-en_fr
+      - DEFAULT_VOICE_REPO=kyutai/tts-voices
+      - SAMPLE_RATE=24000
+
+      # CORS configuration (restrict in production!)
+      - CORS_ORIGINS=*
+      - CORS_CREDENTIALS=true
+
+      # Environment
+      - ENVIRONMENT=production
+      - DEBUG=false
     volumes:
       # Mount model cache to avoid re-downloading
       - ./models:/app/models
