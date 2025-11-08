@@ -57,7 +57,7 @@ test_synthesis_fr() {
     echo "---------------------------"
     echo "Generating French audio..."
     
-    curl -X POST "$API_URL/api/v1/synthesize" \
+    curl -X POST "$API_URL/api/v1/tts" \
          -H "Content-Type: application/json" \
          -d '{
            "text": "Bonjour, je suis Moshi. Je peux parler en français avec un accent naturel.",
@@ -81,7 +81,7 @@ test_synthesis_en() {
     echo "----------------------------"
     echo "Generating English audio..."
     
-    curl -X POST "$API_URL/api/v1/synthesize" \
+    curl -X POST "$API_URL/api/v1/tts" \
          -H "Content-Type: application/json" \
          -d '{
            "text": "Hello, I am Moshi. I can speak English with a natural voice.",
@@ -105,7 +105,7 @@ test_raw_format() {
     echo "---------------------------"
     echo "Generating raw PCM audio..."
     
-    curl -X POST "$API_URL/api/v1/synthesize" \
+    curl -X POST "$API_URL/api/v1/tts" \
          -H "Content-Type: application/json" \
          -d '{
            "text": "Test audio raw format",
@@ -131,7 +131,7 @@ test_long_text() {
     
     LONG_TEXT="Ceci est un test avec un texte plus long. Moshi est capable de synthétiser des textes de plusieurs phrases avec une qualité constante. La synthèse vocale moderne utilise des réseaux de neurones profonds pour générer une voix naturelle et expressive. Cette technologie permet de créer des assistants vocaux, des livres audio, et bien d'autres applications."
     
-    curl -X POST "$API_URL/api/v1/synthesize" \
+    curl -X POST "$API_URL/api/v1/tts" \
          -H "Content-Type: application/json" \
          -d "{
            \"text\": \"$LONG_TEXT\",
@@ -153,7 +153,7 @@ test_error_empty() {
     echo "⚠️ Test 8: Error Handling - Empty Text"
     echo "-------------------------------------"
     
-    RESPONSE=$(curl -s -X POST "$API_URL/api/v1/synthesize" \
+    RESPONSE=$(curl -s -X POST "$API_URL/api/v1/tts" \
          -H "Content-Type: application/json" \
          -d '{
            "text": "",

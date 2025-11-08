@@ -51,7 +51,7 @@ This API provides text-to-speech synthesis using Kyutai Labs' Moshi model.
 
 ### Usage Example:
 ```bash
-curl -X POST "http://localhost:8000/api/v1/synthesize" \\
+curl -X POST "http://localhost:8000/api/v1/tts" \\
      -H "Content-Type: application/json" \\
      -d '{"text": "Hello world", "language": "en"}' \\
      --output output.wav
@@ -458,9 +458,10 @@ async def root():
             "openapi": "/openapi.json"
         },
         "endpoints": {
-            "synthesize": "/api/v1/synthesize",
+            "tts": "/api/v1/tts",
             "health": "/api/v1/health",
-            "languages": "/api/v1/languages"
+            "languages": "/api/v1/languages",
+            "voices": "/api/v1/voices"
         }
     }
 
@@ -554,9 +555,9 @@ def _get_voice_description(voice_id: str) -> str:
     return descriptions.get(voice_id, "Unknown voice")
 
 @app.post(
-    "/api/v1/synthesize",
+    "/api/v1/tts",
     tags=["TTS"],
-    summary="Synthesize Speech",
+    summary="Text-to-Speech Synthesis",
     description="Convert text to speech audio",
     response_class=StreamingResponse,
     responses={
@@ -586,7 +587,7 @@ async def synthesize(
     
     ### Example:
     ```bash
-    curl -X POST "http://localhost:8000/api/v1/synthesize" \\
+    curl -X POST "http://localhost:8000/api/v1/tts" \\
          -H "Content-Type: application/json" \\
          -d '{"text": "Bonjour monde", "language": "fr"}' \\
          --output audio.wav
@@ -675,9 +676,9 @@ async def synthesize(
         )
 
 @app.post(
-    "/api/v1/synthesize/file",
+    "/api/v1/tts/file",
     tags=["TTS"],
-    summary="Synthesize from File",
+    summary="Text-to-Speech from File",
     description="Convert text file to speech audio"
 )
 async def synthesize_from_file(

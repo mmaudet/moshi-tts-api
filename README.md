@@ -92,7 +92,7 @@ chmod +x test_api.sh
 
 #### French Synthesis
 ```bash
-curl -X POST http://localhost:8000/api/v1/synthesize \
+curl -X POST http://localhost:8000/api/v1/tts \
      -H "Content-Type: application/json" \
      -d '{
        "text": "Bonjour, je suis Moshi, votre assistant vocal.",
@@ -103,7 +103,7 @@ curl -X POST http://localhost:8000/api/v1/synthesize \
 
 #### English Synthesis
 ```bash
-curl -X POST http://localhost:8000/api/v1/synthesize \
+curl -X POST http://localhost:8000/api/v1/tts \
      -H "Content-Type: application/json" \
      -d '{
        "text": "Hello, I am Moshi, your voice assistant.",
@@ -114,7 +114,7 @@ curl -X POST http://localhost:8000/api/v1/synthesize \
 
 #### With Voice Selection
 ```bash
-curl -X POST http://localhost:8000/api/v1/synthesize \
+curl -X POST http://localhost:8000/api/v1/tts \
      -H "Content-Type: application/json" \
      -d '{
        "text": "Hello with a different voice.",
@@ -126,7 +126,7 @@ curl -X POST http://localhost:8000/api/v1/synthesize \
 
 #### RAW Format (PCM)
 ```bash
-curl -X POST http://localhost:8000/api/v1/synthesize \
+curl -X POST http://localhost:8000/api/v1/tts \
      -H "Content-Type: application/json" \
      -d '{
        "text": "Test audio",
@@ -191,9 +191,9 @@ Response:
 }
 ```
 
-#### 5. **POST /api/v1/synthesize** - Voice Generation
+#### 5. **POST /api/v1/tts** - Text-to-Speech Generation
 ```bash
-curl -X POST http://localhost:8000/api/v1/synthesize \
+curl -X POST http://localhost:8000/api/v1/tts \
      -H "Content-Type: application/json" \
      -d '{
        "text": "Your text here",
@@ -210,9 +210,9 @@ Parameters:
 - `format` (optional, default: "wav"): Output format ("wav" or "raw")
 - `voice` (optional, default: "default"): Voice preset to use
 
-#### 6. **POST /api/v1/synthesize/file** - Synthesis from File
+#### 6. **POST /api/v1/tts/file** - Text-to-Speech from File
 ```bash
-curl -X POST http://localhost:8000/api/v1/synthesize/file \
+curl -X POST http://localhost:8000/api/v1/tts/file \
      -F "file=@my_text.txt" \
      -F "language=fr" \
      --output audio.wav
@@ -309,7 +309,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 import requests
 
 response = requests.post(
-    "http://localhost:8000/api/v1/synthesize",
+    "http://localhost:8000/api/v1/tts",
     json={
         "text": "Hello world",
         "language": "en",
@@ -326,7 +326,7 @@ with open("output.wav", "wb") as f:
 const axios = require('axios');
 const fs = require('fs');
 
-axios.post('http://localhost:8000/api/v1/synthesize', {
+axios.post('http://localhost:8000/api/v1/tts', {
     text: 'Hello world',
     language: 'en',
     voice: 'default'
@@ -340,7 +340,7 @@ axios.post('http://localhost:8000/api/v1/synthesize', {
 ### n8n Integration
 Use the HTTP Request node with:
 - Method: POST
-- URL: http://localhost:8000/api/v1/synthesize
+- URL: http://localhost:8000/api/v1/tts
 - Body: JSON with `{"text": "your text", "language": "en"}`
 - Response Format: File
 
@@ -378,19 +378,19 @@ Diverse English speakers (subset of 50 available):
 
 ```bash
 # English with emotional expression
-curl -X POST http://localhost:8000/api/v1/synthesize \
+curl -X POST http://localhost:8000/api/v1/tts \
      -H "Content-Type: application/json" \
      -d '{"text": "I am so happy today!", "language": "en", "voice": "expresso/ex03-ex01_happy_001_channel1_334s.wav"}' \
      --output happy_voice.wav
 
 # French voice
-curl -X POST http://localhost:8000/api/v1/synthesize \
+curl -X POST http://localhost:8000/api/v1/tts \
      -H "Content-Type: application/json" \
      -d '{"text": "Bonjour, comment allez-vous?", "language": "fr", "voice": "cml-tts/fr/1406_1028_000009-0003.wav"}' \
      --output french_voice.wav
 
 # Different English speaker
-curl -X POST http://localhost:8000/api/v1/synthesize \
+curl -X POST http://localhost:8000/api/v1/tts \
      -H "Content-Type: application/json" \
      -d '{"text": "Hello, this is a different voice.", "language": "en", "voice": "ears/p010/freeform_speech_01.wav"}' \
      --output ears_voice.wav
