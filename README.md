@@ -65,7 +65,6 @@ python3 -m uvicorn app:app --host 0.0.0.0 --port 8000
 **Why native installation for Mac?**
 - 🚀 **Best performance** - Direct Metal GPU access (not possible in Docker)
 - ⚡ **MLX framework** - Apple's optimized ML framework for M-series chips
-- 🎯 **2-5x faster** - Compared to Docker or CPU versions
 - 💪 **No Docker overhead** - Native macOS performance
 
 **Note**: MLX requires macOS and cannot run in Docker containers (Metal framework limitation)
@@ -99,13 +98,6 @@ docker run -d --name moshi-tts-api \
     --gpus all \
     moshi-tts-api:latest
 
-# Run without GPU (CPU only)
-docker run -d --name moshi-tts-api \
-    -p 8000:8000 \
-    -v $(pwd)/models:/app/models \
-    moshi-tts-api:latest
-```
-
 ### Option 3: With Docker Compose
 
 **Using pre-built image** (update `docker-compose.yml`):
@@ -114,15 +106,6 @@ services:
   moshi-tts-api:
     image: mmaudet/moshi-tts-api:latest
     # Remove the 'build: .' line
-```
-
-**Building from source**:
-```bash
-# With GPU (default)
-docker compose up -d
-
-# Without GPU (edit docker-compose.yml to remove the deploy section)
-docker compose up -d
 ```
 
 ## 📖 Usage
@@ -308,7 +291,7 @@ WORKERS=1
 DEFAULT_TTS_REPO=kyutai/tts-1.6b-en_fr
 DEFAULT_VOICE_REPO=kyutai/tts-voices
 SAMPLE_RATE=24000
-MODEL_DEVICE=cuda  # or cpu, auto-detected if not set
+MODEL_DEVICE=cuda
 MODEL_DTYPE=auto   # auto, bfloat16, or float32
 MODEL_N_Q=32       # Number of codebooks
 MODEL_TEMP=0.6     # Temperature for generation
@@ -323,27 +306,9 @@ ENVIRONMENT=production
 DEBUG=false
 ```
 
-#### Docker Configuration
-
-With Docker, set environment variables in `docker-compose.yml`:
-
-```yaml
-environment:
-  - DEFAULT_TTS_REPO=kyutai/tts-1.6b-en_fr
-  - SAMPLE_RATE=24000
-  - LOG_LEVEL=debug
-```
-
-Or pass them directly:
-
-```bash
-docker run -e LOG_LEVEL=debug -e MODEL_DEVICE=cpu ...
-```
-
 ### Performance
 
 - **GPU**: Real-time or faster generation
-- **CPU**: Slower generation (2-10x real-time depending on CPU)
 - **Memory**: ~6GB for the model in bf16
 - **First Request**: Slower (model loading)
 
@@ -385,20 +350,6 @@ lsof -i :8000
 # Verify NVIDIA Docker
 nvidia-smi
 docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi
-```
-
-### Insufficient Memory
-- Use a smaller model
-- Increase Docker memory
-- Use CPU mode
-
-## 📦 Multi-Architecture Build
-
-To create an ARM64 and AMD64 compatible image:
-```bash
-docker buildx create --use
-docker buildx build --platform linux/amd64,linux/arm64 \
-    -t moshi-tts-api:latest --push .
 ```
 
 ## 🤝 Integration
