@@ -619,8 +619,8 @@ async def root():
     Returns basic API information and usage examples
     """
     return {
-        "api": API_TITLE,
-        "version": API_VERSION,
+        "api": settings.api_title,
+        "version": settings.api_version,
         "documentation": {
             "swagger": "/docs",
             "redoc": "/redoc",

@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # API Configuration
     # ==========================================
     api_version: str = Field(
-        default="1.0.0",
+        default="1.1.0",
         description="API version number"
     )
     api_title: str = Field(
