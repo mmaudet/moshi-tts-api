@@ -5,91 +5,91 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-red.svg)](LICENSE)
 
-API REST pour la synthèse vocale utilisant le modèle [Moshi de Kyutai Labs](https://github.com/kyutai-labs/moshi), avec documentation Swagger interactive et déploiement Docker.
+REST API for text-to-speech synthesis using [Moshi model from Kyutai Labs](https://github.com/kyutai-labs/moshi), with interactive Swagger documentation and Docker deployment.
 
-## ✨ Fonctionnalités
+## ✨ Features
 
-- 🌐 **Support bilingue** : Français et Anglais
-- 📖 **Documentation Swagger** : Interface interactive pour tester l'API
-- 🎵 **Audio haute qualité** : 24kHz en format WAV ou RAW
-- 🚀 **Support GPU** : Accélération CUDA automatique
-- 🔒 **Sécurisé** : Utilisateur non-root, validation des entrées
-- 📦 **Docker** : Déploiement simple et reproductible
-- 🔄 **API RESTful** : Endpoints bien structurés avec OpenAPI
-- 📊 **Health checks** : Monitoring de l'état du service
+- 🌐 **Bilingual Support**: French and English
+- 🎤 **Voice Selection**: 10+ VCTK voices with customizable options
+- 📖 **Swagger Documentation**: Interactive interface to test the API
+- 🎵 **High-Quality Audio**: 24kHz in WAV or RAW format
+- 🚀 **GPU Support**: Automatic CUDA acceleration
+- 🔒 **Secure**: Non-root user, input validation
+- 📦 **Docker**: Simple and reproducible deployment
+- 🔄 **RESTful API**: Well-structured endpoints with OpenAPI
+- 📊 **Health Checks**: Service status monitoring
 
-## 🚀 Installation rapide
+## 🚀 Quick Start
 
-### Prérequis
-- Docker installé
-- NVIDIA Docker Runtime (optionnel, pour support GPU)
-- Au moins 8GB de RAM
-- ~10GB d'espace disque pour le modèle
+### Prerequisites
+- Docker installed
+- NVIDIA Docker Runtime (optional, for GPU support)
+- At least 8GB RAM
+- ~10GB disk space for the model
 
 ### Installation
 
-1. **Cloner ou créer le projet**
+1. **Clone the project**
 ```bash
-mkdir moshi-tts-api
+git clone https://github.com/mmaudet/moshi-tts-api.git
 cd moshi-tts-api
-# Copier tous les fichiers fournis
 ```
 
-2. **Build et lancement rapide**
+2. **Quick build and launch**
 ```bash
 chmod +x build-and-run.sh
 ./build-and-run.sh
 ```
 
-Ou manuellement :
+Or manually:
 
 ```bash
 # Build
 docker build -t moshi-tts-api:latest .
 
-# Run avec GPU
+# Run with GPU
 docker run -d --name moshi-tts-api \
     -p 8000:8000 \
     -v $(pwd)/models:/app/models \
     --gpus all \
     moshi-tts-api:latest
 
-# Run sans GPU (CPU uniquement)
+# Run without GPU (CPU only)
 docker run -d --name moshi-tts-api \
     -p 8000:8000 \
     -v $(pwd)/models:/app/models \
     moshi-tts-api:latest
 ```
 
-### Avec Docker Compose
+### With Docker Compose
 
 ```bash
-# Avec GPU
+# With GPU (default)
 docker-compose up -d
 
-# Sans GPU (éditer docker-compose.yml pour retirer la section deploy)
+# Without GPU (edit docker-compose.yml to remove the deploy section)
 docker-compose up -d
 ```
 
-## 📖 Utilisation
+## 📖 Usage
 
-### Documentation Interactive (Swagger)
+### Interactive Documentation (Swagger)
 
-Une fois l'API démarrée, accédez à la documentation interactive :
+Once the API is started, access the interactive documentation:
 
-- **Swagger UI** : http://localhost:8000/docs
-- **ReDoc** : http://localhost:8000/redoc
-- **OpenAPI JSON** : http://localhost:8000/openapi.json
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI JSON**: http://localhost:8000/openapi.json
 
-### Test rapide avec le script
+### Quick Test with Script
 ```bash
 chmod +x test_api.sh
 ./test_api.sh
 ```
 
-### Exemples d'utilisation avec cURL
+### Usage Examples with cURL
 
-#### Synthèse en français
+#### French Synthesis
 ```bash
 curl -X POST http://localhost:8000/api/v1/synthesize \
      -H "Content-Type: application/json" \
@@ -100,7 +100,7 @@ curl -X POST http://localhost:8000/api/v1/synthesize \
      --output bonjour.wav
 ```
 
-#### Synthèse en anglais
+#### English Synthesis
 ```bash
 curl -X POST http://localhost:8000/api/v1/synthesize \
      -H "Content-Type: application/json" \
@@ -111,7 +111,19 @@ curl -X POST http://localhost:8000/api/v1/synthesize \
      --output hello.wav
 ```
 
-#### Format RAW (PCM)
+#### With Voice Selection
+```bash
+curl -X POST http://localhost:8000/api/v1/synthesize \
+     -H "Content-Type: application/json" \
+     -d '{
+       "text": "Hello with a different voice.",
+       "language": "en",
+       "voice": "vctk_p226"
+     }' \
+     --output custom_voice.wav
+```
+
+#### RAW Format (PCM)
 ```bash
 curl -X POST http://localhost:8000/api/v1/synthesize \
      -H "Content-Type: application/json" \
@@ -122,22 +134,22 @@ curl -X POST http://localhost:8000/api/v1/synthesize \
      }' \
      --output test.raw
 
-# Convertir RAW en WAV
+# Convert RAW to WAV
 ffmpeg -f s16le -ar 24000 -ac 1 -i test.raw output.wav
 ```
 
-### Endpoints disponibles
+### Available Endpoints
 
-#### 1. **GET /** - Information sur l'API
+#### 1. **GET /** - API Information
 ```bash
 curl http://localhost:8000/
 ```
 
-#### 2. **GET /api/v1/health** - État de santé
+#### 2. **GET /api/v1/health** - Health Status
 ```bash
 curl http://localhost:8000/api/v1/health
 ```
-Réponse :
+Response:
 ```json
 {
   "status": "healthy",
@@ -149,11 +161,11 @@ Réponse :
 }
 ```
 
-#### 3. **GET /api/v1/languages** - Langues disponibles
+#### 3. **GET /api/v1/languages** - Available Languages
 ```bash
 curl http://localhost:8000/api/v1/languages
 ```
-Réponse :
+Response:
 ```json
 {
   "languages": [
@@ -163,127 +175,145 @@ Réponse :
 }
 ```
 
-#### 4. **POST /api/v1/synthesize** - Génération de voix
+#### 4. **GET /api/v1/voices** - Available Voices
+```bash
+curl http://localhost:8000/api/v1/voices
+```
+Response:
+```json
+{
+  "voices": [
+    {"id": "default", "name": "vctk_p225", "description": "Default voice"},
+    {"id": "vctk_p225", "name": "vctk_p225", "description": "VCTK voice p225"},
+    {"id": "vctk_p226", "name": "vctk_p226", "description": "VCTK voice p226"}
+  ]
+}
+```
+
+#### 5. **POST /api/v1/synthesize** - Voice Generation
 ```bash
 curl -X POST http://localhost:8000/api/v1/synthesize \
      -H "Content-Type: application/json" \
      -d '{
-       "text": "Votre texte ici",
+       "text": "Your text here",
        "language": "fr",
-       "format": "wav"
+       "format": "wav",
+       "voice": "default"
      }' \
      --output audio.wav
 ```
 
-Paramètres :
-- `text` (requis) : Le texte à synthétiser (1-5000 caractères)
-- `language` (optionnel, défaut: "fr") : Code langue ("fr" ou "en")  
-- `format` (optionnel, défaut: "wav") : Format de sortie ("wav" ou "raw")
+Parameters:
+- `text` (required): Text to synthesize (1-5000 characters)
+- `language` (optional, default: "fr"): Language code ("fr" or "en")
+- `format` (optional, default: "wav"): Output format ("wav" or "raw")
+- `voice` (optional, default: "default"): Voice preset to use
 
-#### 5. **POST /api/v1/synthesize/file** - Synthèse depuis fichier
+#### 6. **POST /api/v1/synthesize/file** - Synthesis from File
 ```bash
 curl -X POST http://localhost:8000/api/v1/synthesize/file \
-     -F "file=@mon_texte.txt" \
+     -F "file=@my_text.txt" \
      -F "language=fr" \
      --output audio.wav
 ```
 
-## 🔧 Configuration avancée
+## 🔧 Advanced Configuration
 
-### Variables d'environnement
+### Environment Variables
 
 ```bash
-# Spécifier le GPU à utiliser
+# Specify which GPU to use
 docker run -e CUDA_VISIBLE_DEVICES=0 ...
 
-# Changer le cache des modèles
+# Change model cache directory
 docker run -e HF_HOME=/custom/path ...
 
-# Désactiver le cache de transformers
+# Disable transformers cache
 docker run -e TRANSFORMERS_OFFLINE=1 ...
 ```
 
-### Personnalisation du modèle
+### Model Customization
 
-Modifier `app.py` pour changer le modèle :
+Edit `app_final.py` to change the model:
 ```python
-model = loaders.load_moshi_model(
-    "kyutai/moshika-pytorch-bf16",  # ou un autre modèle
-    device=device
-)
+DEFAULT_TTS_REPO = "kyutai/tts-1.6b-en_fr"  # or another model
+DEFAULT_VOICE_REPO = "kyutai/tts-voices"
 ```
 
 ### Performance
 
-- **GPU** : Génération en temps réel ou plus rapide
-- **CPU** : Génération plus lente (2-10x temps réel selon CPU)
-- **Mémoire** : ~6GB pour le modèle en bf16
-- **Première requête** : Plus lente (chargement du modèle)
+- **GPU**: Real-time or faster generation
+- **CPU**: Slower generation (2-10x real-time depending on CPU)
+- **Memory**: ~6GB for the model in bf16
+- **First Request**: Slower (model loading)
 
-## 🐳 Commandes Docker utiles
+## 🐳 Useful Docker Commands
 
 ```bash
-# Voir les logs
+# View logs
 docker logs -f moshi-tts-api
 
-# Arrêter le container
+# Stop container
 docker stop moshi-tts-api
 
-# Redémarrer
+# Restart
 docker restart moshi-tts-api
 
-# Supprimer le container
+# Remove container
 docker rm -f moshi-tts-api
 
-# Nettoyer l'image
+# Clean image
 docker rmi moshi-tts-api:latest
 
-# Entrer dans le container
+# Enter container
 docker exec -it moshi-tts-api bash
 ```
 
-## 🔍 Débogage
+## 🔍 Debugging
 
-### L'API ne démarre pas
+### API Doesn't Start
 ```bash
-# Vérifier les logs
+# Check logs
 docker logs moshi-tts-api
 
-# Vérifier que le port 8000 est libre
+# Check if port 8000 is free
 lsof -i :8000
 ```
 
-### Erreur GPU
+### GPU Error
 ```bash
-# Vérifier NVIDIA Docker
+# Verify NVIDIA Docker
 nvidia-smi
 docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi
 ```
 
-### Mémoire insuffisante
-- Utiliser un modèle plus petit
-- Augmenter la mémoire Docker
-- Utiliser le mode CPU
+### Insufficient Memory
+- Use a smaller model
+- Increase Docker memory
+- Use CPU mode
 
-## 📦 Build multi-architecture
+## 📦 Multi-Architecture Build
 
-Pour créer une image compatible ARM64 et AMD64 :
+To create an ARM64 and AMD64 compatible image:
 ```bash
 docker buildx create --use
 docker buildx build --platform linux/amd64,linux/arm64 \
     -t moshi-tts-api:latest --push .
 ```
 
-## 🤝 Intégration
+## 🤝 Integration
 
 ### Python
 ```python
 import requests
-import base64
 
 response = requests.post(
-    "http://localhost:8000/tts",
-    json={"text": "Hello world"}
+    "http://localhost:8000/api/v1/synthesize",
+    json={
+        "text": "Hello world",
+        "language": "en",
+        "voice": "vctk_p225"
+    }
 )
 
 with open("output.wav", "wb") as f:
@@ -295,8 +325,10 @@ with open("output.wav", "wb") as f:
 const axios = require('axios');
 const fs = require('fs');
 
-axios.post('http://localhost:8000/tts', {
-    text: 'Hello world'
+axios.post('http://localhost:8000/api/v1/synthesize', {
+    text: 'Hello world',
+    language: 'en',
+    voice: 'default'
 }, {
     responseType: 'arraybuffer'
 }).then(response => {
@@ -305,47 +337,56 @@ axios.post('http://localhost:8000/tts', {
 ```
 
 ### n8n Integration
-Utilisez le node HTTP Request avec :
+Use the HTTP Request node with:
 - Method: POST
-- URL: http://localhost:8000/tts
-- Body: JSON avec `{"text": "votre texte"}`
+- URL: http://localhost:8000/api/v1/synthesize
+- Body: JSON with `{"text": "your text", "language": "en"}`
 - Response Format: File
 
-## 📄 Licence
+## 🎤 Voice Presets
 
-Ce projet utilise Moshi de Kyutai Labs. Consultez leur [licence](https://github.com/kyutai-labs/moshi/blob/main/LICENSE).
+The API includes multiple voice presets from the VCTK corpus:
 
-Ce wrapper API est sous licence MIT - voir [LICENSE](LICENSE) pour plus de détails.
+- `default` - Default voice (vctk/p225_023.wav)
+- `vctk_p225` through `vctk_p234` - Various VCTK voices
+
+You can list all available voices using the `/api/v1/voices` endpoint.
+
+## 📄 License
+
+This project uses Moshi from Kyutai Labs. See their [license](https://github.com/kyutai-labs/moshi/blob/main/LICENSE).
+
+This API wrapper is licensed under the MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🤝 Contributing
 
-Les contributions sont les bienvenues ! N'hésitez pas à :
+Contributions are welcome! Feel free to:
 
-1. Fork le projet
-2. Créer une branche pour votre fonctionnalité (`git checkout -b feature/AmazingFeature`)
-3. Commit vos changements (`git commit -m 'Add some AmazingFeature'`)
-4. Push sur la branche (`git push origin feature/AmazingFeature`)
-5. Ouvrir une Pull Request
+1. Fork the project
+2. Create a branch for your feature (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## 📸 Screenshots
 
 ### Swagger UI
-La documentation interactive permet de tester tous les endpoints directement depuis le navigateur :
+The interactive documentation allows you to test all endpoints directly from the browser:
 
-- `/docs` - Interface Swagger UI
-- `/redoc` - Documentation alternative ReDoc
-- `/openapi.json` - Spécification OpenAPI
+- `/docs` - Swagger UI interface
+- `/redoc` - Alternative ReDoc documentation
+- `/openapi.json` - OpenAPI specification
 
-## 🙏 Remerciements
+## 🙏 Acknowledgments
 
-- [Kyutai Labs](https://github.com/kyutai-labs) pour le modèle Moshi
-- [FastAPI](https://fastapi.tiangolo.com/) pour le framework web
-- [Docker](https://www.docker.com/) pour la containerisation
+- [Kyutai Labs](https://github.com/kyutai-labs) for the Moshi model
+- [FastAPI](https://fastapi.tiangolo.com/) for the web framework
+- [Docker](https://www.docker.com/) for containerization
 
 ## 📧 Contact
 
-Pour toute question ou suggestion, n'hésitez pas à ouvrir une issue sur GitHub.
+For any questions or suggestions, feel free to open an issue on GitHub.
 
 ---
 
-⭐ Si ce projet vous est utile, n'oubliez pas de lui donner une étoile sur GitHub !
+⭐ If this project is useful to you, don't forget to give it a star on GitHub!
