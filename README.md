@@ -368,15 +368,6 @@ Contributions are welcome! Feel free to:
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📸 Screenshots
-
-### Swagger UI
-The interactive documentation allows you to test all endpoints directly from the browser:
-
-- `/docs` - Swagger UI interface
-- `/redoc` - Alternative ReDoc documentation
-- `/openapi.json` - OpenAPI specification
-
 ## 🙏 Acknowledgments
 
 - [Kyutai Labs](https://github.com/kyutai-labs) for the Moshi model
