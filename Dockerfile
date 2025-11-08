@@ -46,8 +46,7 @@ RUN pip3 install --no-cache-dir \
 RUN pip3 install --no-cache-dir moshi
 
 # Copy application files
-# Use app_final.py as the main application
-COPY --chown=appuser:appuser app_final.py /app/app.py
+COPY --chown=appuser:appuser app.py /app/app.py
 
 # Switch to non-root user for security
 USER appuser

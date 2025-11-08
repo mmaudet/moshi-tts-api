@@ -13,15 +13,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 def test_imports():
     """Test that main modules can be imported"""
     try:
-        from app_final import app
+        from app import app
         assert app is not None
     except ImportError:
-        pytest.skip("app_final module not available")
+        pytest.skip("app module not available")
 
 def test_api_structure():
     """Test that API has correct structure"""
     try:
-        from app_final import (
+        from app import (
             TTSRequest,
             HealthResponse,
             LanguageCode
