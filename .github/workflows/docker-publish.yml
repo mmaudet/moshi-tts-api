@@ -123,4 +123,6 @@ jobs:
           tags: ${{ steps.meta-cpu.outputs.tags }}
           labels: ${{ steps.meta-cpu.outputs.labels }}
           no-cache: true
-          platforms: linux/amd64,linux/arm64
+          # Build AMD64 only - ARM64 build too slow due to sphn Rust compilation under QEMU
+          # Mac users can use Docker Desktop x86_64 emulation (Rosetta 2)
+          platforms: linux/amd64

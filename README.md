@@ -45,8 +45,18 @@ docker run -d --name moshi-tts-api \
 
 #### CPU Version (Mac, Windows, or Linux without GPU)
 
-**Perfect for Mac with Apple Silicon (M1/M2/M3/M4/M5)!**
+**For Mac with Apple Silicon (M1/M2/M3/M4/M5):**
+```bash
+# The image is AMD64 only, but runs on Apple Silicon via Rosetta 2 emulation
+# Docker Desktop automatically handles this - just run:
+docker run -d --name moshi-tts-api \
+    -p 8000:8000 \
+    -v moshi-models:/app/models \
+    --platform linux/amd64 \
+    mmaudet/moshi-tts-api:cpu
+```
 
+**For Intel Mac, Windows, or Linux without GPU:**
 ```bash
 docker run -d --name moshi-tts-api \
     -p 8000:8000 \
@@ -54,11 +64,10 @@ docker run -d --name moshi-tts-api \
     mmaudet/moshi-tts-api:cpu
 ```
 
-**Note**: CPU version is slower than GPU but works on all platforms including:
-- 🍎 Mac with Apple Silicon (ARM64: M1/M2/M3/M4/M5)
-- 🍎 Mac with Intel (x86_64)
-- 🪟 Windows
-- 🐧 Linux without NVIDIA GPU
+**Note**:
+- CPU version is slower than GPU but works on all platforms
+- Mac ARM64 users: The `--platform linux/amd64` flag uses Rosetta 2 emulation
+- Performance on Mac M1-M5 is still good thanks to Rosetta 2
 
 Access the API at: http://localhost:8000/docs
 
