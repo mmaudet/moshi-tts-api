@@ -177,3 +177,120 @@ The `test_api.sh` script provides comprehensive integration testing:
 - Long text handling
 - Error cases
 - Documentation availability
+
+---
+
+# Session 2025-11-08: CPU Docker Image Fix
+
+## Problem Discovered
+
+The CPU Docker image (`mmaudet/moshi-tts-api:cpu`) was installing a **fake placeholder package** (`moshi 0.0.0`) instead of the real Moshi package from Kyutai (`moshi 0.2.11`).
+
+### Symptoms
+- Container logged: `⚠️ Moshi library not available: No module named 'moshi.models'`
+- API generated continuous sound instead of voice synthesis
+- Using dummy model fallback instead of real TTS
+
+## Root Cause Analysis
+
+Investigated and found:
+1. PyPI has **multiple versions** of the `moshi` package:
+   - `0.0.0` - Empty placeholder with just `"""More to come"""`
+   - `0.2.11` - Real package from Kyutai Labs with full TTS functionality
+
+2. The installation command was correct: `uv pip install moshi --extra-index-url https://download.pytorch.org/whl/cpu`
+
+3. The issue was **NOT** with the Dockerfile itself - testing showed it correctly installs `moshi 0.2.11`
+
+4. The Docker Hub image was built from an **older commit** before the fixes
+
+## Solution
+
+### Fixed Issues (Already Committed)
+1. ✅ Changed `--index-url` to `--extra-index-url` to keep PyPI access
+2. ✅ Added quotes around package versions to prevent shell redirection
+3. ✅ GitHub Actions successfully rebuilt both GPU and CPU images
+
+### Latest Status
+- **Docker Hub image**: `mmaudet/moshi-tts-api:cpu` - ✅ FIXED (now has moshi 0.2.11)
+- **Build status**: GitHub Actions completed successfully
+- **Verification**: Tested and confirmed working with real Moshi package
+
+## For Users: How to Update
+
+If you're experiencing the dummy audio issue:
+
+### Option 1: Pull Latest Image (Recommended)
+```bash
+# Stop and remove old container
+docker stop moshi-tts-api 2>/dev/null
+docker rm moshi-tts-api 2>/dev/null
+
+# Pull latest fixed image
+docker pull mmaudet/moshi-tts-api:cpu
+
+# Start new container
+docker run -d --name moshi-tts-api \
+    -p 8000:8000 \
+    -v moshi-models:/app/models \
+    mmaudet/moshi-tts-api:cpu
+
+# Check logs to verify real model loaded
+docker logs -f moshi-tts-api
+```
+
+### Option 2: Use Helper Script
+A script has been created at `/tmp/recreate_container.sh` to automate the update process.
+
+```bash
+chmod +x /tmp/recreate_container.sh
+/tmp/recreate_container.sh
+```
+
+### Verify the Fix
+After updating, check that the real Moshi model is loaded:
+
+```bash
+docker exec moshi-tts-api python3 -c "import moshi; print(f'Moshi version: {moshi.__version__}')"
+```
+
+Expected output: `Moshi version: 0.2.11`
+
+If you see `0.0.0`, you're still using the old image - try:
+```bash
+docker pull --no-cache mmaudet/moshi-tts-api:cpu
+```
+
+## Technical Details
+
+### Moshi Package Versions on PyPI
+```
+Available versions: 0.2.11, 0.2.10, 0.2.9, ..., 0.2.1, 0.1.0, 0.0.0
+Latest: 0.2.11 (real package from Kyutai Labs)
+```
+
+### Package Dependencies
+The real `moshi 0.2.11` package includes:
+- `torch`, `torchaudio` (can use CPU or CUDA versions)
+- `aiohttp`, `huggingface-hub`, `safetensors`
+- `sentencepiece`, `sounddevice`, `sphn`
+- `einops`, `bitsandbytes`
+
+### Build Verification Commands
+```bash
+# Check Dockerfile.cpu builds correctly
+docker build -f Dockerfile.cpu -t test-cpu .
+
+# Verify moshi version
+docker run --rm test-cpu python3 -c "import moshi; print(moshi.__version__)"
+
+# Check it has models module
+docker run --rm test-cpu python3 -c "import moshi.models; print('OK')"
+```
+
+## Related GitHub Actions Run
+- Workflow: "Build and Push Docker Image"
+- Run ID: 19191391866
+- Status: ✅ Success
+- Duration: 1m28s
+- Commit: "Fix shell redirection issue in Dockerfile.cpu with quoted package versions"
