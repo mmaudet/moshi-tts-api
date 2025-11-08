@@ -77,8 +77,8 @@ jobs:
           short-description: "FastAPI-based TTS API using Kyutai's Moshi model with GPU acceleration"
           readme-filepath: ./README.md
 
-  build-and-push-cpu:
-    name: Build and Push CPU Image
+  build-and-push-mlx:
+    name: Build and Push MLX Image (Mac)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -99,30 +99,29 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for CPU image
-        id: meta-cpu
+      - name: Extract metadata (tags, labels) for MLX image
+        id: meta-mlx
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # Tag as 'cpu' for pushes to default branch
-            type=raw,value=cpu,enable={{is_default_branch}}
-            # Tag with version + cpu suffix for releases (e.g., v1.0.0 -> 1.0.0-cpu)
-            type=semver,pattern={{version}}-cpu
-            # Tag with major.minor + cpu (e.g., v1.0.0 -> 1.0-cpu)
-            type=semver,pattern={{major}}.{{minor}}-cpu
-            # Tag with major + cpu (e.g., v1.0.0 -> 1-cpu)
-            type=semver,pattern={{major}}-cpu
+            # Tag as 'mlx' for pushes to default branch
+            type=raw,value=mlx,enable={{is_default_branch}}
+            # Tag with version + mlx suffix for releases (e.g., v1.0.0 -> 1.0.0-mlx)
+            type=semver,pattern={{version}}-mlx
+            # Tag with major.minor + mlx (e.g., v1.0.0 -> 1.0-mlx)
+            type=semver,pattern={{major}}.{{minor}}-mlx
+            # Tag with major + mlx (e.g., v1.0.0 -> 1-mlx)
+            type=semver,pattern={{major}}-mlx
 
-      - name: Build and push CPU Docker image
+      - name: Build and push MLX Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.cpu
+          file: ./Dockerfile.mlx
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta-cpu.outputs.tags }}
-          labels: ${{ steps.meta-cpu.outputs.labels }}
+          tags: ${{ steps.meta-mlx.outputs.tags }}
+          labels: ${{ steps.meta-mlx.outputs.labels }}
           no-cache: true
-          # Build AMD64 only - ARM64 build too slow due to sphn Rust compilation under QEMU
-          # Mac users can use Docker Desktop x86_64 emulation (Rosetta 2)
-          platforms: linux/amd64
+          # Build ARM64 only - MLX is Apple Silicon (M1/M2/M3/M4/M5) specific
+          platforms: linux/arm64
