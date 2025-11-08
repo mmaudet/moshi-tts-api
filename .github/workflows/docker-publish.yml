@@ -64,8 +64,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          no-cache: true
           platforms: linux/amd64
 
       - name: Update Docker Hub description
@@ -123,6 +122,5 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-cpu.outputs.tags }}
           labels: ${{ steps.meta-cpu.outputs.labels }}
-          cache-from: type=gha,scope=cpu
-          cache-to: type=gha,mode=max,scope=cpu
+          no-cache: true
           platforms: linux/amd64,linux/arm64
