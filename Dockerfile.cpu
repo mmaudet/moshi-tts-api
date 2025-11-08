@@ -1,5 +1,5 @@
 # CPU-only version of Moshi TTS API for Mac ARM64 and systems without GPU
-# Compatible with Apple Silicon (M1/M2/M3) and x86_64
+# Compatible with Apple Silicon (M1/M2/M3/M4/M5) and x86_64
 FROM python:3.12-slim
 
 # Set environment variables
@@ -30,7 +30,7 @@ RUN useradd -m -u 1001 appuser && \
 WORKDIR /app
 
 # Install PyTorch CPU version and Moshi together to avoid duplicate downloads
-# CPU version works on both ARM64 (Mac M1/M2/M3) and x86_64
+# CPU version works on both ARM64 (Mac M1/M2/M3/M4/M5) and x86_64
 # Note: CPU inference is slower than GPU but works everywhere
 RUN uv pip install --system --break-system-packages \
     torch \

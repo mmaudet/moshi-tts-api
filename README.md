@@ -45,7 +45,7 @@ docker run -d --name moshi-tts-api \
 
 #### CPU Version (Mac, Windows, or Linux without GPU)
 
-**Perfect for Mac with Apple Silicon (M1/M2/M3)!**
+**Perfect for Mac with Apple Silicon (M1/M2/M3/M4/M5)!**
 
 ```bash
 docker run -d --name moshi-tts-api \
@@ -55,7 +55,7 @@ docker run -d --name moshi-tts-api \
 ```
 
 **Note**: CPU version is slower than GPU but works on all platforms including:
-- 🍎 Mac with Apple Silicon (ARM64)
+- 🍎 Mac with Apple Silicon (ARM64: M1/M2/M3/M4/M5)
 - 🍎 Mac with Intel (x86_64)
 - 🪟 Windows
 - 🐧 Linux without NVIDIA GPU
