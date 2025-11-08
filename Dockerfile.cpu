@@ -43,14 +43,14 @@ RUN uv pip install --system --break-system-packages \
 # Install core API dependencies using uv
 # Updated versions for Python 3.12 compatibility
 RUN uv pip install --system --break-system-packages \
-    fastapi>=0.104.1 \
-    uvicorn[standard]>=0.24.0 \
-    pydantic>=2.4.2 \
-    pydantic-settings>=2.1.0 \
-    numpy>=1.26.0 \
-    scipy>=1.11.4 \
-    python-multipart>=0.0.6 \
-    aiofiles>=23.2.1 \
+    'fastapi>=0.104.1' \
+    'uvicorn[standard]>=0.24.0' \
+    'pydantic>=2.4.2' \
+    'pydantic-settings>=2.1.0' \
+    'numpy>=1.26.0' \
+    'scipy>=1.11.4' \
+    'python-multipart>=0.0.6' \
+    'aiofiles>=23.2.1' \
     && rm -rf /root/.cache/uv
 
 # Copy application files
