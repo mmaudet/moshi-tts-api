@@ -36,12 +36,14 @@ RUN useradd -m -u 1001 appuser && \
 
 WORKDIR /app
 
-# Install PyTorch with CUDA 12.6 support first using uv
+# Install PyTorch with CUDA 12.6 support and Moshi together to avoid duplicate downloads
+# Installing together prevents moshi from re-downloading PyTorch
 # uv is 10-100x faster than pip
 # Clean cache after installation to save disk space during build
 RUN uv pip install --system --break-system-packages \
     torch \
     torchaudio \
+    moshi \
     --index-url https://download.pytorch.org/whl/cu126 \
     && rm -rf /root/.cache/uv
 
@@ -56,11 +58,6 @@ RUN uv pip install --system --break-system-packages \
     scipy>=1.11.4 \
     python-multipart>=0.0.6 \
     aiofiles>=23.2.1 \
-    && rm -rf /root/.cache/uv
-
-# Install Moshi TTS from PyPI using uv
-# Clean cache after installation to save disk space
-RUN uv pip install --system --break-system-packages moshi \
     && rm -rf /root/.cache/uv
 
 # Copy application files
