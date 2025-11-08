@@ -31,12 +31,13 @@ WORKDIR /app
 
 # Install PyTorch CPU version and Moshi together to avoid duplicate downloads
 # CPU version works on both ARM64 (Mac M1/M2/M3/M4/M5) and x86_64
+# Use --extra-index-url (not --index-url) to keep access to PyPI for moshi
 # Note: CPU inference is slower than GPU but works everywhere
 RUN uv pip install --system --break-system-packages \
     torch \
     torchaudio \
     moshi \
-    --index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
     && rm -rf /root/.cache/uv
 
 # Install core API dependencies using uv
